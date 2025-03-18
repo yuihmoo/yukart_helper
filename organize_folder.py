@@ -1,6 +1,8 @@
 import os
 import shutil
 import threading
+import sqlite3
+import datetime
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
 
@@ -13,6 +15,14 @@ class FolderOrganizerTab(ctk.CTkFrame):
         self.parent = parent
         self.target_folder = None
         self.keywords = []
+        self.keyword_frames = {}  # 키워드별 프레임 저장
+
+        # 데이터베이스 초기화
+        self.db_path = os.path.join(os.path.expanduser("~"), ".yukart_helper.db")
+        self.init_database()
+
+        # 키워드 이력 로드
+        self.keyword_history = self.load_keyword_history()
 
         # 자주 사용되는 확장자 목록
         self.important_extensions = [
@@ -148,9 +158,14 @@ class FolderOrganizerTab(ctk.CTkFrame):
         keyword_main_frame = ctk.CTkFrame(self.content_frame)
         keyword_main_frame.pack(fill="x", padx=10, pady=10)
 
-        ctk.CTkLabel(keyword_main_frame, text="키워드 관리", font=ctk.CTkFont(size=16, weight="bold")).pack(anchor="w",
-                                                                                                       padx=10,
-                                                                                                       pady=(10, 5))
+        keyword_title_frame = ctk.CTkFrame(keyword_main_frame)
+        keyword_title_frame.pack(fill="x", padx=10, pady=(10, 5))
+
+        ctk.CTkLabel(
+            keyword_title_frame,
+            text="키워드 관리",
+            font=ctk.CTkFont(size=16, weight="bold")
+        ).pack(side="left", anchor="w", padx=10)
 
         # 키워드 설명
         info_frame = ctk.CTkFrame(keyword_main_frame)
@@ -165,19 +180,36 @@ class FolderOrganizerTab(ctk.CTkFrame):
         list_frame.pack(fill="x", padx=10, pady=10)
 
         # 왼쪽: 키워드 목록
-        keyword_list_frame = ctk.CTkFrame(list_frame)
-        keyword_list_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        self.keyword_list_frame = ctk.CTkFrame(list_frame)
+        self.keyword_list_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
-        ctk.CTkLabel(keyword_list_frame, text="키워드 목록", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=10,
-                                                                                              pady=5)
+        # 키워드 목록 타이틀
+        header_frame = ctk.CTkFrame(self.keyword_list_frame)
+        header_frame.pack(fill="x", padx=10, pady=5)
 
-        # 키워드 리스트박스 (CustomTkinter에는 직접적인 Listbox가 없어 대안 사용)
-        self.keyword_listbox = ctk.CTkTextbox(keyword_list_frame, height=150)
-        self.keyword_listbox.pack(fill="both", expand=True, padx=10, pady=5)
+        ctk.CTkLabel(
+            header_frame,
+            text="키워드 목록",
+            font=ctk.CTkFont(weight="bold")
+        ).pack(side="left", anchor="w")
 
-        # 오른쪽: 버튼 프레임
-        button_frame = ctk.CTkFrame(list_frame)
-        button_frame.pack(side="right", fill="y", padx=(10, 0))
+        ctk.CTkLabel(
+            header_frame,
+            text="(클릭하여 삭제)",
+            text_color="gray"
+        ).pack(side="left", padx=10)
+
+        # 키워드 목록을 표시할 스크롤 프레임
+        self.keywords_scroll = ctk.CTkScrollableFrame(self.keyword_list_frame, height=150)
+        self.keywords_scroll.pack(fill="both", expand=True, padx=10, pady=5)
+
+        # 오른쪽: 버튼 프레임 & 키워드 추천
+        right_frame = ctk.CTkFrame(list_frame)
+        right_frame.pack(side="right", fill="y", padx=(10, 0))
+
+        # 키워드 작업 프레임
+        button_frame = ctk.CTkFrame(right_frame)
+        button_frame.pack(fill="x", padx=0, pady=0)
 
         ctk.CTkLabel(button_frame, text="키워드 작업", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=10, pady=5)
 
@@ -191,15 +223,22 @@ class FolderOrganizerTab(ctk.CTkFrame):
         )
         self.add_button.pack(padx=10, pady=10)
 
-        # 키워드 삭제 버튼
-        self.remove_button = ctk.CTkButton(
-            button_frame,
-            text="키워드 삭제",
-            command=self.remove_keyword,
-            fg_color="#f44336",
-            width=150
-        )
-        self.remove_button.pack(padx=10, pady=10)
+        # 자주 사용하는 키워드 프레임
+        frequent_frame = ctk.CTkFrame(right_frame)
+        frequent_frame.pack(fill="x", padx=0, pady=(20, 0))
+
+        ctk.CTkLabel(
+            frequent_frame,
+            text="자주 사용하는 키워드",
+            font=ctk.CTkFont(weight="bold")
+        ).pack(anchor="w", padx=10, pady=5)
+
+        # 자주 사용하는 키워드 표시 (상위 5개)
+        self.freq_keywords_frame = ctk.CTkFrame(frequent_frame)
+        self.freq_keywords_frame.pack(fill="x", padx=10, pady=5)
+
+        # 자주 사용하는 키워드 버튼 추가
+        self.update_frequent_keywords()
 
         # 4. 로그 프레임
         log_frame = ctk.CTkFrame(self.content_frame)
@@ -215,6 +254,137 @@ class FolderOrganizerTab(ctk.CTkFrame):
         # 초기 로그 메시지
         self.add_log("폴더 정리 기능이 시작되었습니다.")
         self.add_log("대상 폴더를 선택하고, 키워드를 추가한 후 '파일 정리 시작' 버튼을 눌러주세요.")
+
+        # 이전 키워드 로드
+        self.load_recent_keywords()
+
+    def init_database(self):
+        """데이터베이스 초기화"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # 키워드 이력 테이블 생성
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS keyword_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    keyword TEXT NOT NULL,
+                    used_count INTEGER DEFAULT 1,
+                    last_used TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
+            # 폴더 정리 작업 이력 테이블 생성
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS organize_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    folder_path TEXT NOT NULL,
+                    keywords TEXT,
+                    deleted_extensions TEXT,
+                    removed_duplicates BOOLEAN,
+                    moved_files INTEGER,
+                    deleted_files INTEGER,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
+            conn.commit()
+        except sqlite3.Error as e:
+            print(f"데이터베이스 초기화 오류: {e}")
+        finally:
+            if conn:
+                conn.close()
+
+    def load_keyword_history(self):
+        """데이터베이스에서 키워드 이력 로드"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT keyword, used_count, last_used FROM keyword_history ORDER BY used_count DESC")
+            rows = cursor.fetchall()
+
+            history = {}
+            for row in rows:
+                keyword, count, last_used = row
+                history[keyword] = {"count": count, "last_used": last_used}
+
+            return history
+
+        except sqlite3.Error as e:
+            print(f"키워드 이력 로드 오류: {e}")
+            return {}
+        finally:
+            if conn:
+                conn.close()
+
+    def load_recent_keywords(self):
+        """최근에 사용한 키워드 로드"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # 가장 많이 사용된 키워드 10개 가져오기
+            cursor.execute("SELECT keyword FROM keyword_history ORDER BY used_count DESC LIMIT 10")
+            rows = cursor.fetchall()
+
+            # 키워드 목록에 추가
+            for row in rows:
+                keyword = row[0]
+                if keyword not in self.keywords:
+                    self.keywords.append(keyword)
+
+            self.update_keyword_list()
+
+        except sqlite3.Error as e:
+            print(f"최근 키워드 로드 오류: {e}")
+        finally:
+            if conn:
+                conn.close()
+
+    def update_frequent_keywords(self):
+        """자주 사용하는 키워드 UI 업데이트"""
+        # 기존 위젯 제거
+        for widget in self.freq_keywords_frame.winfo_children():
+            widget.destroy()
+
+        # 사용 빈도 순으로 상위 5개 키워드 가져오기
+        frequent_keywords = sorted(
+            self.keyword_history.items(),
+            key=lambda x: x[1]["count"],
+            reverse=True
+        )[:5]
+
+        if not frequent_keywords:
+            ctk.CTkLabel(
+                self.freq_keywords_frame,
+                text="아직 사용한 키워드가 없습니다",
+                text_color="gray"
+            ).pack(padx=5, pady=5)
+            return
+
+        # 자주 사용하는 키워드 버튼 추가
+        for keyword, data in frequent_keywords:
+            count = data["count"]
+            btn = ctk.CTkButton(
+                self.freq_keywords_frame,
+                text=f"{keyword} ({count}회)",
+                command=lambda k=keyword: self.add_frequent_keyword(k),
+                fg_color="#4CAF50",
+                hover_color="#388E3C",
+                height=30
+            )
+            btn.pack(fill="x", padx=5, pady=3)
+
+    def add_frequent_keyword(self, keyword):
+        """자주 사용하는 키워드를 현재 목록에 추가"""
+        if keyword not in self.keywords:
+            self.keywords.append(keyword)
+            self.update_keyword_list()
+            self.add_log(f"자주 사용하는 키워드 추가됨: {keyword}")
+        else:
+            messagebox.showinfo("알림", f"'{keyword}'는 이미 목록에 있습니다.")
 
     def toggle_duplicate_removal(self):
         """중복 파일 삭제 옵션 변경 시 호출"""
@@ -243,32 +413,62 @@ class FolderOrganizerTab(ctk.CTkFrame):
             else:
                 messagebox.showwarning("중복 키워드", f"'{keyword}'는 이미 목록에 있습니다.")
 
-    def remove_keyword(self):
-        """선택된 키워드 삭제"""
-        if not self.keywords:
-            messagebox.showinfo("알림", "삭제할 키워드가 없습니다.")
-            return
-
-        # 삭제할 키워드 선택 대화상자
-        dialog = ctk.CTkInputDialog(title="키워드 삭제", text="삭제할 키워드를 입력하세요:")
-        keyword = dialog.get_input()
-
-        if keyword and keyword in self.keywords:
+    def remove_keyword(self, keyword):
+        """특정 키워드 삭제"""
+        if keyword in self.keywords:
             self.keywords.remove(keyword)
             self.update_keyword_list()
             self.add_log(f"키워드 삭제됨: {keyword}")
-        else:
-            messagebox.showinfo("알림", "일치하는 키워드가 없습니다.")
 
     def update_keyword_list(self):
-        """키워드 목록 업데이트"""
-        self.keyword_listbox.configure(state="normal")
-        self.keyword_listbox.delete("0.0", "end")
+        """키워드 목록 UI 업데이트"""
+        # 기존 키워드 프레임 제거
+        for widget in self.keywords_scroll.winfo_children():
+            widget.destroy()
 
+        self.keyword_frames = {}  # 키워드 프레임 초기화
+
+        if not self.keywords:
+            ctk.CTkLabel(
+                self.keywords_scroll,
+                text="키워드가 없습니다.\n키워드 추가 버튼을 눌러 추가하세요.",
+                text_color="gray",
+                justify="center"
+            ).pack(pady=20)
+            return
+
+        # 각 키워드에 대한 항목 추가
         for keyword in self.keywords:
-            self.keyword_listbox.insert("end", f"• {keyword}\n")
+            # 키워드 항목 프레임
+            keyword_frame = ctk.CTkFrame(self.keywords_scroll)
+            keyword_frame.pack(fill="x", padx=5, pady=2)
 
-        self.keyword_listbox.configure(state="disabled")
+            # 키워드 라벨 (클릭 가능)
+            keyword_label = ctk.CTkButton(
+                keyword_frame,
+                text=keyword,
+                fg_color="transparent",
+                text_color=("gray10", "gray90"),
+                hover_color=("gray70", "gray30"),
+                anchor="w",
+                command=lambda k=keyword: self.remove_keyword(k)
+            )
+            keyword_label.pack(side="left", fill="x", expand=True, padx=5, pady=2)
+
+            # 삭제 버튼 (X)
+            delete_btn = ctk.CTkButton(
+                keyword_frame,
+                text="X",
+                width=30,
+                height=24,
+                fg_color="#f44336",
+                hover_color="#d32f2f",
+                command=lambda k=keyword: self.remove_keyword(k)
+            )
+            delete_btn.pack(side="right", padx=5, pady=2)
+
+            # 프레임 저장
+            self.keyword_frames[keyword] = keyword_frame
 
     def add_log(self, message):
         """로그 메시지 추가"""
@@ -276,6 +476,77 @@ class FolderOrganizerTab(ctk.CTkFrame):
         self.log_text.insert("end", message + "\n")
         self.log_text.see("end")
         self.log_text.configure(state="disabled")
+
+    def record_keyword_usage(self, keywords):
+        """키워드 사용 이력 DB에 기록"""
+        if not keywords:
+            return
+
+        now = datetime.datetime.now().isoformat()
+
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            for keyword in keywords:
+                # 이미 있는 키워드인지 확인
+                cursor.execute("SELECT id, used_count FROM keyword_history WHERE keyword = ?", (keyword,))
+                row = cursor.fetchone()
+
+                if row:
+                    # 기존 키워드 업데이트
+                    keyword_id, count = row
+                    cursor.execute(
+                        "UPDATE keyword_history SET used_count = ?, last_used = ? WHERE id = ?",
+                        (count + 1, now, keyword_id)
+                    )
+                else:
+                    # 새 키워드 추가
+                    cursor.execute(
+                        "INSERT INTO keyword_history (keyword, used_count, last_used) VALUES (?, ?, ?)",
+                        (keyword, 1, now)
+                    )
+
+            conn.commit()
+
+            # 메모리 내 이력 업데이트
+            self.keyword_history = self.load_keyword_history()
+            self.update_frequent_keywords()
+
+        except sqlite3.Error as e:
+            print(f"키워드 사용 기록 오류: {e}")
+        finally:
+            if conn:
+                conn.close()
+
+    def record_organize_task(self, task_data):
+        """폴더 정리 작업 이력 기록"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                INSERT INTO organize_history 
+                (folder_path, keywords, deleted_extensions, removed_duplicates, moved_files, deleted_files)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    task_data["folder_path"],
+                    ",".join(task_data["keywords"]),
+                    ",".join(task_data["deleted_extensions"]),
+                    1 if task_data["removed_duplicates"] else 0,
+                    task_data["moved_files"],
+                    task_data["deleted_files"]
+                )
+            )
+
+            conn.commit()
+        except sqlite3.Error as e:
+            print(f"작업 기록 오류: {e}")
+        finally:
+            if conn:
+                conn.close()
 
     def start_organizing(self):
         """파일 정리 작업 시작"""
@@ -324,6 +595,10 @@ class FolderOrganizerTab(ctk.CTkFrame):
         if not messagebox.askyesno("실행 확인", f"선택한 폴더({self.target_folder})에서 다음 작업을 수행하시겠습니까?\n\n{task_summary}"):
             return
 
+        # 키워드 사용 기록
+        if self.keywords:
+            self.record_keyword_usage(self.keywords)
+
         # 실행 쓰레드 시작
         threading.Thread(target=lambda: self.organize_files(selected_extensions), daemon=True).start()
 
@@ -357,18 +632,30 @@ class FolderOrganizerTab(ctk.CTkFrame):
         self.run_button.configure(state="disabled")
         self.add_log("==== 파일 정리 시작 ====")
 
+        # 작업 데이터 초기화 (DB 기록용)
+        task_data = {
+            "folder_path": self.target_folder,
+            "keywords": self.keywords.copy(),
+            "deleted_extensions": selected_extensions.copy(),
+            "removed_duplicates": self.remove_duplicates_var.get(),
+            "moved_files": 0,
+            "deleted_files": 0
+        }
+
         try:
             # 확장자별 파일 삭제
             if selected_extensions:
                 self.add_log(f"확장자별 파일 삭제 시작... (대상 확장자: {', '.join(selected_extensions)})")
                 deleted_count = self.delete_files_by_extension(self.target_folder, selected_extensions)
                 self.add_log(f"확장자별 파일 삭제 완료: {deleted_count}개 파일 삭제됨")
+                task_data["deleted_files"] += deleted_count
 
             # 중복 파일 제거 옵션이 켜져 있으면 실행
             if self.remove_duplicates_var.get():
                 self.add_log("중복 항목 검사 및 삭제 시작...")
                 deleted_files, deleted_folders = delete_duplicate_items(self.target_folder, self.add_log)
                 self.add_log(f"중복 항목 삭제 완료: {deleted_files}개 파일, {deleted_folders}개 폴더 삭제됨")
+                task_data["deleted_files"] += deleted_files
 
             # 키워드가 있는 경우에만 파일 정리 실행
             if self.keywords:
@@ -417,8 +704,12 @@ class FolderOrganizerTab(ctk.CTkFrame):
                         self.add_log(f"키워드 '{keyword}'에 해당하는 파일이 없습니다.")
 
                 self.add_log(f"총 {moved_files}개 파일이 정리되었습니다.")
+                task_data["moved_files"] = moved_files
 
             self.add_log("==== 파일 정리 완료 ====")
+
+            # 작업 기록 DB에 저장
+            self.record_organize_task(task_data)
 
             # 작업 완료 메시지
             messagebox.showinfo("작업 완료", "파일 정리 작업이 완료되었습니다.")
@@ -438,10 +729,11 @@ class FolderOrganizerTab(ctk.CTkFrame):
 
 # 단독 실행 테스트용 코드
 if __name__ == "__main__":
-    ctk.set_appearance_mode("light")
+    ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
 
     root = ctk.CTk()
     root.title("폴더 정리 기능 테스트")
+    root.geometry("1000x800")
     app = FolderOrganizerTab(root)
     root.mainloop()
