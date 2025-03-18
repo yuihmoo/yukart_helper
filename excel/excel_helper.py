@@ -61,7 +61,7 @@ class ExcelHelper:
         # 제목 입력
         ctk.CTkLabel(
             title_frame,
-            text="문서 제목:",
+            text="*문서 제목:",
             font=ctk.CTkFont(size=14)
         ).grid(row=0, column=0, padx=5, pady=10, sticky="w")
 
@@ -79,7 +79,7 @@ class ExcelHelper:
 
         ctk.CTkLabel(
             header_title_frame,
-            text="헤더 설정",
+            text="*헤더 설정",
             font=ctk.CTkFont(size=16, weight="bold")
         ).pack(side="left", padx=10)
 
