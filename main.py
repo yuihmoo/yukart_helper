@@ -22,7 +22,7 @@ class App(ctk.CTk):
         self.after(100, self.maximize_window)
 
         # 아이콘 설정
-        icon_path = "cat_ghost.ico"
+        icon_path = "walrus.ico"
         if os.path.exists(icon_path):
             self.iconbitmap(icon_path)
 

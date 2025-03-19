@@ -35,5 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['cat_ghost.ico'],
+    icon=['walrus.ico'],
 )
