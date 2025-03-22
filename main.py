@@ -2,6 +2,7 @@ import customtkinter as ctk
 import platform
 from excel.excel_helper import ExcelHelper
 from organize_folder import FolderOrganizerTab
+from mp3.export_youtube_mp3 import YoutubeMP3Tab
 import os
 
 # CustomTkinter 테마 설정
@@ -40,9 +41,11 @@ class App(ctk.CTk):
         self.tabview.add("폴더 정리")
         self.folder_organizer = FolderOrganizerTab(self.tabview.tab("폴더 정리"))
 
-        # 여기에 추가 탭을 넣을 수 있음
-        # self.tabview.add("컴퓨터 정보")
-        # self.pc_info = PcInfo(self.tabview.tab("컴퓨터 정보"))
+        # YouTube MP3 다운로드 탭 추가
+        self.tabview.add("YouTube MP3 다운로드")
+        self.youtube_mp3 = YoutubeMP3Tab(self.tabview.tab("YouTube MP3 다운로드"))
+
+        # 엑셀 도우미 탭 추가
         self.tabview.add("엑셀 도우미")
         self.excel_helper = ExcelHelper(self.tabview.tab("엑셀 도우미"))
 
