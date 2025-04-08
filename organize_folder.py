@@ -178,6 +178,21 @@ class FolderOrganizerTab(ctk.CTkFrame):
         # 키워드 관리 (리스트와 버튼)
         list_frame = ctk.CTkFrame(keyword_main_frame)
         list_frame.pack(fill="x", padx=10, pady=10)
+        
+        # 키워드 관리 버튼
+        manage_btn_frame = ctk.CTkFrame(keyword_main_frame)
+        manage_btn_frame.pack(fill="x", padx=10, pady=(0, 10))
+        
+        # 키워드 이력 관리 버튼 추가
+        keyword_manage_btn = ctk.CTkButton(
+            manage_btn_frame,
+            text="키워드 이력 관리",
+            command=self.show_keyword_history_manager,
+            fg_color="#9C27B0",
+            hover_color="#7B1FA2",
+            height=30
+        )
+        keyword_manage_btn.pack(side="right", padx=10, pady=5)
 
         # 왼쪽: 키워드 목록
         self.keyword_list_frame = ctk.CTkFrame(list_frame)
@@ -237,6 +252,9 @@ class FolderOrganizerTab(ctk.CTkFrame):
         self.freq_keywords_frame = ctk.CTkFrame(frequent_frame)
         self.freq_keywords_frame.pack(fill="x", padx=10, pady=5)
 
+        # 키워드 이력 관리 창 초기화
+        self.keyword_history_window = None
+        
         # 자주 사용하는 키워드 버튼 추가
         self.update_frequent_keywords()
 
@@ -348,6 +366,10 @@ class FolderOrganizerTab(ctk.CTkFrame):
         # 기존 위젯 제거
         for widget in self.freq_keywords_frame.winfo_children():
             widget.destroy()
+            
+        # 키워드 이력 창이 열려있는 경우 해당 창도 업데이트
+        if self.keyword_history_window and self.keyword_history_window.winfo_exists():
+            self.update_keyword_history_window()
 
         # 사용 빈도 순으로 상위 5개 키워드 가져오기
         frequent_keywords = sorted(
@@ -390,6 +412,203 @@ class FolderOrganizerTab(ctk.CTkFrame):
         """중복 파일 삭제 옵션 변경 시 호출"""
         state = "활성화" if self.remove_duplicates_var.get() else "비활성화"
         self.add_log(f"중복 파일 삭제 기능 {state}")
+        
+    def delete_keyword_from_db(self, keyword):
+        """데이터베이스에서 키워드 완전히 삭제"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 키워드 이력에서 삭제
+            cursor.execute("DELETE FROM keyword_history WHERE keyword = ?", (keyword,))
+            conn.commit()
+            
+            # 삭제된 행 수 확인
+            deleted_rows = cursor.rowcount
+            
+            # 메모리 내 이력 업데이트
+            self.keyword_history = self.load_keyword_history()
+            self.update_frequent_keywords()
+            
+            self.add_log(f"키워드 '{keyword}'가 데이터베이스에서 완전히 삭제되었습니다 ({deleted_rows}개 항목).")
+            
+        except sqlite3.Error as e:
+            self.add_log(f"데이터베이스 삭제 오류: {e}")
+            messagebox.showerror("오류", f"데이터베이스에서 키워드 삭제 중 오류가 발생했습니다: {str(e)}")
+        finally:
+            if conn:
+                conn.close()
+                
+    def show_keyword_history_manager(self):
+        """키워드 이력 관리 창 표시"""
+        # 이미 창이 열려있으면 활성화
+        if self.keyword_history_window and self.keyword_history_window.winfo_exists():
+            self.keyword_history_window.focus_force()
+            return
+            
+        # 새 창 생성
+        self.keyword_history_window = ctk.CTkToplevel(self)
+        self.keyword_history_window.title("키워드 이력 관리")
+        self.keyword_history_window.geometry("600x500")
+        self.keyword_history_window.transient(self)
+        self.keyword_history_window.grab_set()  # 모달 창으로 설정
+        
+        # 메인 프레임
+        main_frame = ctk.CTkFrame(self.keyword_history_window)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # 설명 텍스트
+        ctk.CTkLabel(
+            main_frame, 
+            text="키워드 이력을 관리합니다. 키워드를 선택하면 사용 내역을 확인하거나 데이터베이스에서 삭제할 수 있습니다.",
+            wraplength=550
+        ).pack(padx=10, pady=10)
+        
+        # 키워드 목록 프레임
+        list_frame = ctk.CTkScrollableFrame(main_frame, height=300)
+        list_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # 키워드 목록 헤더
+        header_frame = ctk.CTkFrame(list_frame)
+        header_frame.pack(fill="x", padx=5, pady=5)
+        
+        ctk.CTkLabel(header_frame, text="키워드", width=150, font=ctk.CTkFont(weight="bold")).pack(side="left", padx=5)
+        ctk.CTkLabel(header_frame, text="사용 횟수", width=80, font=ctk.CTkFont(weight="bold")).pack(side="left", padx=5)
+        ctk.CTkLabel(header_frame, text="마지막 사용", width=180, font=ctk.CTkFont(weight="bold")).pack(side="left", padx=5)
+        ctk.CTkLabel(header_frame, text="관리", width=100, font=ctk.CTkFont(weight="bold")).pack(side="left", padx=5)
+        
+        # 키워드 목록 추가
+        if not self.keyword_history:
+            ctk.CTkLabel(list_frame, text="저장된 키워드 이력이 없습니다.", text_color="gray").pack(pady=20)
+        else:
+            # 사용 횟수 내림차순으로 정렬
+            sorted_history = sorted(
+                self.keyword_history.items(),
+                key=lambda x: x[1]["count"],
+                reverse=True
+            )
+            
+            for keyword, data in sorted_history:
+                item_frame = ctk.CTkFrame(list_frame)
+                item_frame.pack(fill="x", padx=5, pady=2)
+                
+                # 키워드 이름
+                ctk.CTkLabel(item_frame, text=keyword, width=150, anchor="w").pack(side="left", padx=5)
+                
+                # 사용 횟수
+                ctk.CTkLabel(item_frame, text=str(data["count"]), width=80).pack(side="left", padx=5)
+                
+                # 마지막 사용 일자
+                last_used = "알 수 없음"
+                if data["last_used"]:
+                    try:
+                        # 날짜 형식 변환 (ISO 형식을 읽기 쉬운 형태로)
+                        date_obj = datetime.datetime.fromisoformat(data["last_used"])
+                        last_used = date_obj.strftime("%Y-%m-%d %H:%M")
+                    except:
+                        pass
+                        
+                ctk.CTkLabel(item_frame, text=last_used, width=180).pack(side="left", padx=5)
+                
+                # 삭제 버튼
+                delete_btn = ctk.CTkButton(
+                    item_frame,
+                    text="삭제",
+                    width=80,
+                    height=24,
+                    fg_color="#f44336",
+                    hover_color="#d32f2f",
+                    command=lambda k=keyword: self.confirm_delete_keyword_history(k)
+                )
+                delete_btn.pack(side="left", padx=5)
+        
+        # 버튼 프레임
+        button_frame = ctk.CTkFrame(main_frame)
+        button_frame.pack(fill="x", padx=10, pady=10)
+        
+        # 모든 키워드 삭제 버튼
+        delete_all_btn = ctk.CTkButton(
+            button_frame,
+            text="모든 키워드 이력 삭제",
+            fg_color="#f44336",
+            hover_color="#d32f2f",
+            command=self.confirm_delete_all_keyword_history
+        )
+        delete_all_btn.pack(side="left", padx=10, pady=10)
+        
+        # 새로고침 버튼
+        refresh_btn = ctk.CTkButton(
+            button_frame,
+            text="새로고침",
+            fg_color="#2196F3",
+            hover_color="#1976D2",
+            command=self.update_keyword_history_window
+        )
+        refresh_btn.pack(side="right", padx=10, pady=10)
+        
+        # 닫기 버튼
+        close_btn = ctk.CTkButton(
+            button_frame,
+            text="닫기",
+            command=self.keyword_history_window.destroy
+        )
+        close_btn.pack(side="right", padx=10, pady=10)
+    
+    def update_keyword_history_window(self):
+        """키워드 이력 창 새로고침"""
+        if self.keyword_history_window and self.keyword_history_window.winfo_exists():
+            # 창 닫고 다시 열기
+            self.keyword_history_window.destroy()
+            self.show_keyword_history_manager()
+    
+    def confirm_delete_keyword_history(self, keyword):
+        """키워드 이력 삭제 확인"""
+        if messagebox.askyesno("삭제 확인", f"'{keyword}' 키워드의 이력을 데이터베이스에서 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다."):
+            self.delete_keyword_from_db(keyword)
+            # 현재 목록에서도 삭제 (이미 목록에 있을 경우)
+            if keyword in self.keywords:
+                self.keywords.remove(keyword)
+                self.update_keyword_list()
+            # 창 새로고침
+            self.update_keyword_history_window()
+    
+    def confirm_delete_all_keyword_history(self):
+        """모든 키워드 이력 삭제 확인"""
+        if not self.keyword_history:
+            messagebox.showinfo("알림", "삭제할 키워드 이력이 없습니다.")
+            return
+            
+        if messagebox.askyesno("전체 삭제 확인", "모든 키워드 이력을 데이터베이스에서 삭제하시겠습니까?\n이 작업은 되돌릴 수 없으며, 현재 사용 중인 키워드도 모두 삭제됩니다."):
+            try:
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                
+                # 키워드 이력 테이블 비우기
+                cursor.execute("DELETE FROM keyword_history")
+                conn.commit()
+                
+                # 삭제된 행 수 확인
+                deleted_rows = cursor.rowcount
+                
+                # 메모리 내 이력 업데이트
+                self.keyword_history = {}
+                self.keywords = []  # 현재 키워드도 모두 삭제
+                self.update_keyword_list()
+                self.update_frequent_keywords()
+                
+                self.add_log(f"모든 키워드 이력이 삭제되었습니다 (총 {deleted_rows}개 항목).")
+                messagebox.showinfo("삭제 완료", f"모든 키워드 이력이 삭제되었습니다 (총 {deleted_rows}개 항목).")
+                
+                # 창 닫기
+                if self.keyword_history_window and self.keyword_history_window.winfo_exists():
+                    self.keyword_history_window.destroy()
+                
+            except sqlite3.Error as e:
+                self.add_log(f"데이터베이스 삭제 오류: {e}")
+                messagebox.showerror("오류", f"키워드 이력 삭제 중 오류가 발생했습니다: {str(e)}")
+            finally:
+                if conn:
+                    conn.close()
 
     def select_folder(self):
         """대상 폴더 선택"""
@@ -419,6 +638,10 @@ class FolderOrganizerTab(ctk.CTkFrame):
             self.keywords.remove(keyword)
             self.update_keyword_list()
             self.add_log(f"키워드 삭제됨: {keyword}")
+            
+            # 데이터베이스에서도 삭제할지 확인
+            if messagebox.askyesno("데이터베이스 삭제 확인", f"'{keyword}' 키워드를 이력에서도 완전히 삭제하시겠습니까?\n(이 작업은 되돌릴 수 없습니다)"):
+                self.delete_keyword_from_db(keyword)
 
     def update_keyword_list(self):
         """키워드 목록 UI 업데이트"""
