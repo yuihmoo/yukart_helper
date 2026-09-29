@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>N2 한자 암기</title>
+<meta name="description" content="JLPT N2 기출 어휘 한자 암기장 & Day별 퀴즈">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="N2 한자">
+<meta name="theme-color" content="#16181d">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<style>
+:root{
+  --bg:#f6f5f2;--card:#ffffff;--ink:#1d1f24;--sub:#6b6f78;--line:#e4e2dc;
+  --accent:#c8553d;--accent-weak:#f6e3de;--ok:#2f8f5b;--ok-weak:#dcf1e5;--ng:#c8553d;--ng-weak:#f8e0da;
+  --chip:#efede8;--shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16181d;--card:#1f2229;--ink:#eceae5;--sub:#9a9ea8;--line:#2e323b;
+    --accent:#e27a5f;--accent-weak:#3a2622;--ok:#5cc28a;--ok-weak:#1d3328;--ng:#e27a5f;--ng-weak:#3a2622;
+    --chip:#2a2e36;--shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#16181d;--card:#1f2229;--ink:#eceae5;--sub:#9a9ea8;--line:#2e323b;
+  --accent:#e27a5f;--accent-weak:#3a2622;--ok:#5cc28a;--ok-weak:#1d3328;--ng:#e27a5f;--ng-weak:#3a2622;
+  --chip:#2a2e36;--shadow:none;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Hiragino Sans","Noto Sans KR","Noto Sans JP",sans-serif;
+  font-size:16px;line-height:1.5;min-height:100vh;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.jp{font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+.app{max-width:560px;margin:0 auto;padding:0 16px 32px}
+header.top{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;align-items:center;gap:8px;padding:12px 0 10px}
+header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:var(--chip)}
+.hidden{display:none!important}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+.menu{display:grid;gap:12px;margin-top:8px}
+.menu .card{padding:20px;text-align:left;display:flex;gap:16px;align-items:center;width:100%}
+.menu .big{font-size:34px;width:56px;height:56px;border-radius:14px;display:grid;place-items:center;background:var(--accent-weak);color:var(--accent)}
+.menu h2{margin:0;font-size:18px}.menu p{margin:2px 0 0;color:var(--sub);font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 4px}
+.stat{padding:12px;text-align:center}.stat b{display:block;font-size:22px}.stat span{font-size:12px;color:var(--sub)}
+.note{font-size:12px;color:var(--sub);margin-top:16px}
+.days{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none}
+.days::-webkit-scrollbar{display:none}
+.days button{flex:0 0 auto;padding:7px 12px;border-radius:999px;background:var(--chip);font-size:14px;white-space:nowrap}
+.days button.on{background:var(--ink);color:var(--bg)}
+.list{display:grid;gap:8px}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;width:100%;text-align:left}
+.row .w{font-size:22px;min-width:0;flex:1}
+.row .w small{display:block;font-size:13px;color:var(--sub);font-family:inherit}
+.row .m{font-size:13px;color:var(--sub);text-align:right;max-width:45%}
+.row.done{opacity:.55}
+.chk{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);flex:0 0 auto;display:grid;place-items:center;font-size:13px}
+.chk.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.toolbar{display:flex;gap:8px;margin:0 0 10px;flex-wrap:wrap}
+.pill{padding:6px 12px;border-radius:999px;background:var(--chip);font-size:13px}
+.pill.on{background:var(--accent);color:#fff}
+/* detail */
+.detail .head{padding:20px;text-align:center}
+.detail .head .word{font-size:44px;line-height:1.2;word-break:keep-all}
+.detail .head .reading{font-size:20px;color:var(--accent);margin-top:4px}
+.detail .head .mean{font-size:16px;margin-top:6px}
+.detail .head .yrs{font-size:12px;color:var(--sub);margin-top:6px}
+.sec{margin-top:12px;padding:16px}
+.sec h3{margin:0 0 10px;font-size:13px;color:var(--sub);font-weight:600;letter-spacing:.02em}
+.kj{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.kj:first-of-type{border-top:0;padding-top:0}
+.kj .c{font-size:48px;line-height:64px;text-align:center;background:var(--chip);border-radius:12px;height:64px}
+.kj .h{font-weight:700}
+.kj .t{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;background:var(--accent-weak);color:var(--accent);margin-left:6px;vertical-align:2px}
+.kj .p{font-size:14px;margin-top:2px}
+.kj .o{font-size:14px;color:var(--sub);margin-top:4px}
+.ex .s{font-size:19px;line-height:1.7}
+mark{background:var(--accent-weak);color:inherit;border-radius:4px;padding:0 2px}
+.ex .k{color:var(--sub);font-size:14px;margin-top:4px}
+.nav2{display:flex;gap:8px;margin-top:12px}
+.btn{flex:1;padding:14px;border-radius:14px;background:var(--chip);font-weight:600;text-align:center}
+.btn.primary{background:var(--accent);color:#fff}
+.btn:disabled{opacity:.4}
+.tts{font-size:14px;padding:6px 12px;border-radius:999px;background:var(--chip);margin-top:10px}
+/* quiz */
+.qtop{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--sub)}
+.bar{flex:1;height:6px;border-radius:3px;background:var(--chip);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);transition:width .25s}
+.qcard{padding:28px 16px;text-align:center;margin-top:12px}
+.qcard .word{font-size:52px;line-height:1.2;word-break:keep-all}
+.qcard .step{font-size:13px;color:var(--sub);margin-bottom:10px}
+.qcard .revealed{font-size:18px;color:var(--accent);min-height:27px;margin-top:6px}
+.choices{display:grid;gap:8px;margin-top:12px}
+.choice{padding:15px 16px;border-radius:14px;background:var(--card);border:1px solid var(--line);text-align:left;font-size:17px}
+.choice.ok{background:var(--ok-weak);border-color:var(--ok)}
+.choice.ng{background:var(--ng-weak);border-color:var(--ng)}
+.inp{display:flex;gap:8px;margin-top:12px}
+.inp input{flex:1;min-width:0;font-size:18px;padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.inp input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.hint{font-size:12px;color:var(--sub);margin-top:6px;min-height:18px}
+.fb{margin-top:12px;padding:14px 16px;border-radius:14px;font-size:15px}
+.fb.ok{background:var(--ok-weak)}.fb.ng{background:var(--ng-weak)}
+.result{padding:24px;text-align:center}
+.result .score{font-size:48px;font-weight:800}
+.wrongs{margin-top:12px}
+.seg{display:flex;background:var(--chip);border-radius:12px;padding:3px;margin:6px 0 12px}
+.seg button{flex:1;padding:8px;border-radius:10px;font-size:14px}
+.seg button.on{background:var(--card);box-shadow:var(--shadow);font-weight:600}
+.dgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.dgrid .card{padding:14px 8px;text-align:center}
+.dgrid b{display:block;font-size:17px}.dgrid span{font-size:12px;color:var(--sub)}
+.dgrid .perfect{border-color:var(--ok)}
+h2.sub{font-size:14px;color:var(--sub);margin:18px 0 8px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <button class="iconbtn hidden" id="backBtn" aria-label="뒤로">‹</button>
+    <h1 id="title">N2 기출 한자</h1>
+    <button class="iconbtn" id="themeBtn" aria-label="테마 전환">◐</button>
+  </header>
+  <main id="view"></main>
+</div>
+
+<script>
+/*__DATA__*/
+</script>
+<script>
+"use strict";
+// ---------- storage (iOS 사파리 개인정보 보호 모드 등에서 localStorage 예외 방어) ----------
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('n2:'+k); return v==null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem('n2:'+k, JSON.stringify(v)); }catch(e){} }
+};
+
+// ---------- data ----------
+const KANJI = {};
+for (const line of RAW_KANJI.split('\n')) {
+  if (!line || line[0]==='#') continue;
+  const [c, hun, parts, type, origin] = line.split('|');
+  if (c) KANJI[c] = {hun, parts, type, origin};
+}
+const EX = {};
+for (const line of RAW_EX.split('\n')) {
+  if (!line || line[0]==='#') continue;
+  const [w, s, k] = line.split('|');
+  if (w) EX[w] = {s, k};
+}
+const PER_DAY = 20;
+const WORDS = WORDS_JSON.map((x, i) => ({...x, id: i}));
+const DAYS = [];
+for (let i = 0; i < WORDS.length; i += PER_DAY) DAYS.push(WORDS.slice(i, i + PER_DAY));
+// 마지막 Day가 너무 짧으면 앞 Day에 합침
+if (DAYS.length > 1 && DAYS[DAYS.length-1].length < PER_DAY/2) { const last = DAYS.pop(); DAYS[DAYS.length-1].push(...last); }
+WORDS.forEach(w => w.day = DAYS.findIndex(d => d.includes(w)) + 1);
+
+const isKanji = c => /[一-鿿々]/.test(c);
+const uniqKanji = w => [...new Set([...w].filter(c => /[一-鿿]/.test(c)))];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const shuffle = a => { a = a.slice(); for (let i = a.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+// ---------- kana utils ----------
+const kata2hira = s => s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+const ROMA = {
+  kya:'きゃ',kyu:'きゅ',kyo:'きょ',sha:'しゃ',shu:'しゅ',sho:'しょ',she:'しぇ',sya:'しゃ',syu:'しゅ',syo:'しょ',
+  cha:'ちゃ',chu:'ちゅ',cho:'ちょ',che:'ちぇ',tya:'ちゃ',tyu:'ちゅ',tyo:'ちょ',cya:'ちゃ',cyu:'ちゅ',cyo:'ちょ',
+  nya:'にゃ',nyu:'にゅ',nyo:'にょ',hya:'ひゃ',hyu:'ひゅ',hyo:'ひょ',mya:'みゃ',myu:'みゅ',myo:'みょ',
+  rya:'りゃ',ryu:'りゅ',ryo:'りょ',gya:'ぎゃ',gyu:'ぎゅ',gyo:'ぎょ',ja:'じゃ',ju:'じゅ',jo:'じょ',je:'じぇ',
+  jya:'じゃ',jyu:'じゅ',jyo:'じょ',zya:'じゃ',zyu:'じゅ',zyo:'じょ',bya:'びゃ',byu:'びゅ',byo:'びょ',pya:'ぴゃ',pyu:'ぴゅ',pyo:'ぴょ',
+  dya:'ぢゃ',dyu:'ぢゅ',dyo:'ぢょ',shi:'し',chi:'ち',tsu:'つ',ltu:'っ',xtu:'っ',
+  ka:'か',ki:'き',ku:'く',ke:'け',ko:'こ',sa:'さ',si:'し',su:'す',se:'せ',so:'そ',ta:'た',ti:'ち',tu:'つ',te:'て',to:'と',
+  na:'な',ni:'に',nu:'ぬ',ne:'ね',no:'の',ha:'は',hi:'ひ',fu:'ふ',hu:'ふ',he:'へ',ho:'ほ',ma:'ま',mi:'み',mu:'む',me:'め',mo:'も',
+  ya:'や',yu:'ゆ',yo:'よ',ra:'ら',ri:'り',ru:'る',re:'れ',ro:'ろ',wa:'わ',wo:'を',
+  ga:'が',gi:'ぎ',gu:'ぐ',ge:'げ',go:'ご',za:'ざ',ji:'じ',zi:'じ',zu:'ず',ze:'ぜ',zo:'ぞ',da:'だ',di:'ぢ',du:'づ',de:'で',do:'ど',
+  ba:'ば',bi:'び',bu:'ぶ',be:'べ',bo:'ぼ',pa:'ぱ',pi:'ぴ',pu:'ぷ',pe:'ぺ',po:'ぽ',
+  a:'あ',i:'い',u:'う',e:'え',o:'お',xa:'ぁ',xi:'ぃ',xu:'ぅ',xe:'ぇ',xo:'ぉ',xya:'ゃ',xyu:'ゅ',xyo:'ょ',"nn":'ん',"n'":'ん','-':'ー'
+};
+function romaToHira(input){
+  let s = input.toLowerCase(), out = '', i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (!/[a-z'\-]/.test(c)) { out += c; i++; continue; }
+    // 촉음: 같은 자음 두 번 (n 제외)
+    if (i+1 < s.length && c === s[i+1] && /[bcdfghjklmpqrstvwxyz]/.test(c) && c !== 'n') { out += 'っ'; i++; continue; }
+    if (c === 't' && s[i+1] === 'c' && s[i+2] === 'h') { out += 'っ'; i++; continue; } // tch → っち
+    if (c === 'n' && s[i+1] === 'n') {
+      // "konnichi" → こんにち : 뒤에 모음/y가 오면 첫 n만 ん
+      if (/[aiueoy]/.test(s[i+2] || '')) { out += 'ん'; i++; } else { out += 'ん'; i += 2; }
+      continue;
+    }
+    let hit = false;
+    for (let len = 3; len >= 1; len--) {
+      const seg = s.substr(i, len);
+      if (ROMA[seg]) {
+        out += ROMA[seg]; i += len; hit = true; break;
+      }
+    }
+    if (hit) continue;
+    if (c === 'n') { out += 'ん'; i++; continue; }  // 자음 앞 또는 끝의 n
+    out += c; i++; // 해석 불가 문자는 그대로 (오답 처리됨)
+  }
+  return out;
+}
+const normReading = s => kata2hira(romaToHira(String(s).trim().replace(/\s+/g, ''))).replace(/[・.,、。]/g, '');
+function readingMatches(input, answer){
+  const a = normReading(answer), u = normReading(input);
+  if (!u) return false;
+  if (u === a) return true;
+  // な형용사 だ / する동사 する 생략 허용
+  for (const suf of ['だ', 'する']) if (a.endsWith(suf) && u === a.slice(0, -suf.length)) return true;
+  return false;
+}
+
+// 오답 후보 생성 (JLPT 문제1 스타일: 장음·탁음·촉음 혼동)
+const DAKU = {'か':'が','き':'ぎ','く':'ぐ','け':'げ','こ':'ご','さ':'ざ','し':'じ','す':'ず','せ':'ぜ','そ':'ぞ','た':'だ','ち':'ぢ','つ':'づ','て':'で','と':'ど','は':'ば','ひ':'び','ふ':'ぶ','へ':'べ','ほ':'ぼ'};
+const UNDAKU = Object.fromEntries(Object.entries(DAKU).map(([k,v]) => [v,k]));
+function mutations(r){
+  const out = new Set(), h = r;
+  // 장음 추가/삭제: ょう↔ょ, ゅう↔ゅ, おう/こう↔こ
+  h.replace(/([ょゅ])う/g, (m, p, idx) => { out.add(h.slice(0, idx) + p + h.slice(idx+2)); return m; });
+  h.replace(/[ょゅ](?!う)/g, (m, idx) => { out.add(h.slice(0, idx+1) + 'う' + h.slice(idx+1)); return m; });
+  h.replace(/([こそとのほもよろごぞどぼぽ])う/g, (m, p, idx) => { out.add(h.slice(0, idx+1) + h.slice(idx+2)); return m; });
+  h.replace(/([こそとほよごぞどぼ])(?!う)/g, (m, p, idx) => { if (idx < h.length-1) out.add(h.slice(0, idx+1) + 'う' + h.slice(idx+1)); return m; });
+  // 탁음 토글
+  [...h].forEach((c, idx) => {
+    if (DAKU[c]) out.add(h.slice(0, idx) + DAKU[c] + h.slice(idx+1));
+    if (UNDAKU[c]) out.add(h.slice(0, idx) + UNDAKU[c] + h.slice(idx+1));
+  });
+  // 촉음 토글
+  h.replace(/っ/g, (m, idx) => { out.add(h.slice(0, idx) + 'つ' + h.slice(idx+1)); out.add(h.slice(0, idx) + h.slice(idx+1)); return m; });
+  out.delete(h);
+  return [...out].filter(x => x.length > 0);
+}
+function readingChoices(word){
+  const ans = word.r;
+  const pool = new Set();
+  shuffle(mutations(word.r)).slice(0, 3).forEach(x => pool.add(x));
+  // 같은 길이대의 다른 단어 읽기로 채움
+  const others = shuffle(WORDS.filter(w => w.id !== word.id && Math.abs(w.r.length - word.r.length) <= 2)).map(w => w.r);
+  for (const o of others) { if (pool.size >= 3) break; if (o !== ans) pool.add(o); }
+  pool.delete(ans);
+  return shuffle([ans, ...[...pool].slice(0, 3)]);
+}
+function meaningChoices(word){
+  const pool = [];
+  for (const w of shuffle(WORDS)) {
+    if (pool.length >= 3) break;
+    if (w.id !== word.id && w.m !== word.m && !pool.includes(w.m)) pool.push(w.m);
+  }
+  return shuffle([word.m, ...pool]);
+}
+
+// ---------- TTS ----------
+function speak(text){
+  try {
+    if (!('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ja-JP'; u.rate = 0.9;
+    const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('ja'));
+    if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  } catch(e) {}
+}
+
+// ---------- theme ----------
+const themeBtn = document.getElementById('themeBtn');
+function applyTheme(t){ if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); }
+applyTheme(store.get('theme', null));
+themeBtn.onclick = () => {
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const cur = document.documentElement.getAttribute('data-theme') || (dark ? 'dark' : 'light');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  applyTheme(next); store.set('theme', next);
+};
+
+// ---------- router ----------
+const view = document.getElementById('view'), titleEl = document.getElementById('title'), backBtn = document.getElementById('backBtn');
+let stack = [];
+function go(fn, args, replace){ if (replace) stack.pop(); stack.push([fn, args]); fn(...(args||[])); window.scrollTo(0, 0); }
+function back(){
+  if (stack.length <= 1) return;
+  stack.pop();
+  const [fn, args] = stack[stack.length-1];
+  // Detail에서 퀴즈로 돌아올 때 진행 상태를 유지 (재시작 방지)
+  if (fn === Quiz && Quiz._resume) { try { Quiz._resume(); return; } catch(e) {} }
+  fn(...(args||[]));
+}
+backBtn.onclick = back;
+function setHeader(t, canBack){ titleEl.textContent = t; backBtn.classList.toggle('hidden', !canBack); }
+
+// ---------- state ----------
+const memorized = new Set(store.get('memo', []));
+const wrongSet = new Set(store.get('wrong', []));
+const best = store.get('best', {});
+const saveMemo = () => store.set('memo', [...memorized]);
+const saveWrong = () => store.set('wrong', [...wrongSet]);
+
+// ---------- home ----------
+function Home(){
+  setHeader('N2 기출 한자', false);
+  const perfectDays = Object.values(best).filter(v => v && v.score === v.total).length;
+  view.innerHTML = `
+    <div class="stats">
+      <div class="card stat"><b>${memorized.size}</b><span>암기 완료 / ${WORDS.length}</span></div>
+      <div class="card stat"><b>${perfectDays}</b><span>만점 Day / ${DAYS.length}</span></div>
+      <div class="card stat"><b>${wrongSet.size}</b><span>오답노트</span></div>
+    </div>
+    <div class="menu">
+      <button class="card" id="mBook"><div class="big jp">暗</div><div><h2>단어 암기장</h2><p>부수 분해 · 유래 · 예문</p></div></button>
+      <button class="card" id="mQuiz"><div class="big jp">試</div><div><h2>Day별 퀴즈</h2><p>한자 → 읽기(히라가나) + 뜻</p></div></button>
+      <button class="card" id="mWrong"><div class="big jp">誤</div><div><h2>오답 복습</h2><p>틀린 단어만 다시 풀기 (${wrongSet.size}개)</p></div></button>
+    </div>
+    <p class="note">출처: JLPT N2 기출 어휘 2021~2026 (해커스 기출 PDF) 중 한자가 포함된 ${WORDS.length}개 · Day당 ${PER_DAY}개.<br>
+    유래는 『설문해자』 계열 전통 해석을 바탕으로 한 요약이며, 학설이 갈리는 글자는 암기하기 쉬운 풀이를 택했습니다.</p>`;
+  document.getElementById('mBook').onclick = () => go(Book, [store.get('bookDay', 1)]);
+  document.getElementById('mQuiz').onclick = () => go(QuizMenu);
+  document.getElementById('mWrong').onclick = () => {
+    const list = WORDS.filter(w => wrongSet.has(w.id));
+    if (!list.length) { alert('오답노트가 비어 있습니다.'); return; }
+    go(Quiz, [list, '오답 복습', null]);
+  };
+}
+
+// ---------- book ----------
+let bookFilter = 'all';
+function Book(day){
+  day = Math.min(Math.max(1, day|0), DAYS.length);
+  store.set('bookDay', day);
+  setHeader('단어 암기장', true);
+  const list = DAYS[day-1].filter(w => bookFilter === 'all' || (bookFilter === 'todo' ? !memorized.has(w.id) : memorized.has(w.id)));
+  view.innerHTML = `
+    <div class="days" id="days">${DAYS.map((d, i) => `<button class="${i+1===day?'on':''}" data-d="${i+1}">Day ${i+1}</button>`).join('')}</div>
+    <div class="toolbar">
+      <button class="pill ${bookFilter==='all'?'on':''}" data-f="all">전체 ${DAYS[day-1].length}</button>
+      <button class="pill ${bookFilter==='todo'?'on':''}" data-f="todo">미암기</button>
+      <button class="pill ${bookFilter==='done'?'on':''}" data-f="done">암기 완료</button>
+    </div>
+    <div class="list">${list.map(w => `
+      <div class="card row ${memorized.has(w.id)?'done':''}" data-id="${w.id}">
+        <button class="chk ${memorized.has(w.id)?'on':''}" data-chk="${w.id}" aria-label="암기 체크">${memorized.has(w.id)?'✓':''}</button>
+        <div class="w jp">${esc(w.w)}<small>${esc(w.r)}</small></div>
+        <div class="m">${esc(w.m)}</div>
+      </div>`).join('') || '<p class="note">해당하는 단어가 없습니다.</p>'}</div>
+    <div class="nav2"><button class="btn primary" id="toQuiz">Day ${day} 퀴즈 풀기</button></div>`;
+  const on = view.querySelector('.days .on'); if (on) on.scrollIntoView({inline:'center', block:'nearest'});
+  view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => go(Book, [+b.dataset.d], true));
+  view.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { bookFilter = b.dataset.f; Book(day); });
+  view.querySelectorAll('.row').forEach(r => r.onclick = e => {
+    const chk = e.target.closest('[data-chk]');
+    const id = +r.dataset.id;
+    if (chk) { memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo(); Book(day); return; }
+    go(Detail, [id, list.map(w => w.id)]);
+  });
+  document.getElementById('toQuiz').onclick = () => go(Quiz, [DAYS[day-1], `Day ${day} 퀴즈`, day]);
+}
+
+function highlight(sentence, word){
+  // 활용형 대응: 단어의 한자 어간(처음 가나 앞까지)으로 강조
+  const stem = word.replace(/だ$/, '');
+  let key = sentence.includes(stem) ? stem : (word.match(/^[^぀-ゟ]+/) || [''])[0];
+  if (!key || !sentence.includes(key)) return esc(sentence);
+  const i = sentence.indexOf(key);
+  return esc(sentence.slice(0, i)) + '<mark>' + esc(key) + '</mark>' + esc(sentence.slice(i + key.length));
+}
+
+function Detail(id, ids){
+  const w = WORDS[id]; if (!w) { back(); return; }
+  setHeader(`Day ${w.day}`, true);
+  const pos = ids ? ids.indexOf(id) : -1;
+  const ex = EX[w.w];
+  const ks = uniqKanji(w.w);
+  view.innerHTML = `
+    <div class="detail">
+      <div class="card head">
+        <div class="word jp">${esc(w.w)}</div>
+        <div class="reading">${esc(w.r)}</div>
+        <div class="mean">${esc(w.m)}</div>
+        <div class="yrs">기출: ${w.years.join(', ')}년</div>
+        <button class="tts" id="tts">🔊 발음 듣기</button>
+      </div>
+      <div class="card sec"><h3>한자 분해 · 유래</h3>
+        ${ks.map(c => { const k = KANJI[c]; return k ? `
+          <div class="kj"><div class="c jp">${c}</div><div>
+            <div class="h">${esc(k.hun)}<span class="t">${esc(k.type)}</span></div>
+            <div class="p">구성: ${esc(k.parts)}</div>
+            <div class="o">${esc(k.origin)}</div></div></div>` :
+          `<div class="kj"><div class="c jp">${c}</div><div class="o">자료 없음</div></div>`; }).join('')}
+      </div>
+      ${ex ? `<div class="card sec ex"><h3>예문</h3>
+        <div class="s jp">${highlight(ex.s, w.w)}</div>
+        <div class="k">${esc(ex.k)}</div>
+        <button class="tts" id="ttsEx">🔊 예문 듣기</button></div>` : ''}
+      <div class="nav2">
+        <button class="btn" id="prev" ${pos <= 0 ? 'disabled' : ''}>‹ 이전</button>
+        <button class="btn ${memorized.has(id)?'':'primary'}" id="memo">${memorized.has(id) ? '암기 취소' : '외웠어요 ✓'}</button>
+        <button class="btn" id="next" ${pos < 0 || pos >= ids.length-1 ? 'disabled' : ''}>다음 ›</button>
+      </div>
+    </div>`;
+  document.getElementById('tts').onclick = () => speak(w.r);
+  const te = document.getElementById('ttsEx'); if (te) te.onclick = () => speak(ex.s);
+  document.getElementById('prev').onclick = () => { if (pos > 0) go(Detail, [ids[pos-1], ids], true); };
+  document.getElementById('next').onclick = () => { if (pos >= 0 && pos < ids.length-1) go(Detail, [ids[pos+1], ids], true); };
+  document.getElementById('memo').onclick = () => {
+    memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo();
+    if (memorized.has(id) && pos >= 0 && pos < ids.length-1) go(Detail, [ids[pos+1], ids], true); else Detail(id, ids);
+  };
+}
+
+// ---------- quiz ----------
+let quizMode = store.get('quizMode', 'choice'); // 'choice' | 'type'
+function QuizMenu(){
+  setHeader('Day별 퀴즈', true);
+  view.innerHTML = `
+    <div class="seg" id="seg">
+      <button data-m="choice" class="${quizMode==='choice'?'on':''}">읽기 객관식</button>
+      <button data-m="type" class="${quizMode==='type'?'on':''}">읽기 직접 입력</button>
+    </div>
+    <p class="note" style="margin-top:0">직접 입력은 히라가나·가타카나·로마자(예: kyougi) 모두 인정. な형용사의 'だ', 'する'는 생략 가능.</p>
+    <div class="dgrid">${DAYS.map((d, i) => { const b = best[i+1]; const pf = b && b.score === b.total;
+      return `<button class="card ${pf?'perfect':''}" data-d="${i+1}"><b>Day ${i+1}</b><span>${b ? `최고 ${b.score}/${b.total}` : `${d.length}문제`}</span></button>`; }).join('')}
+      <button class="card" data-d="all"><b>전체 랜덤</b><span>20문제</span></button>
+    </div>`;
+  view.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { quizMode = b.dataset.m; store.set('quizMode', quizMode); QuizMenu(); });
+  view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
+    if (b.dataset.d === 'all') go(Quiz, [shuffle(WORDS).slice(0, 20), '전체 랜덤', null]);
+    else { const d = +b.dataset.d; go(Quiz, [DAYS[d-1], `Day ${d} 퀴즈`, d]); }
+  });
+}
+
+function Quiz(list, title, day){
+  const qs = shuffle(list);
+  let idx = 0, score = 0; const wrong = [];
+  let st;
+  setHeader(title, true);
+  function render(){
+    const w = qs[idx];
+    st = {w, step: 1, readOK: null, rc: quizMode === 'choice' ? readingChoices(w) : null, mc: meaningChoices(w), locked: false};
+    draw();
+  }
+  function draw(){
+    const {w, step} = st;
+    view.innerHTML = `
+      <div class="qtop"><span>${idx+1} / ${qs.length}</span><div class="bar"><i style="width:${idx/qs.length*100}%"></i></div><span>정답 ${score}</span></div>
+      <div class="card qcard">
+        <div class="step">${step === 1 ? '① 읽는 법은?' : '② 뜻은?'}</div>
+        <div class="word jp">${esc(w.w)}</div>
+        <div class="revealed">${step === 2 ? esc(w.r) : ''}</div>
+      </div>
+      <div id="ans"></div>
+      <div id="fb"></div>`;
+    const ans = document.getElementById('ans');
+    if (step === 1 && quizMode === 'type') {
+      ans.innerHTML = `<form class="inp" id="f" autocomplete="off">
+          <input id="in" lang="ja" inputmode="text" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="ひらがな 또는 romaji">
+          <button class="btn primary" style="flex:0 0 auto">확인</button></form>
+        <div class="hint" id="hint"></div>
+        <button class="btn" id="giveup" style="width:100%;margin-top:6px">모르겠어요</button>`;
+      const inp = document.getElementById('in'), hint = document.getElementById('hint');
+      inp.oninput = () => { const v = inp.value.trim(); hint.textContent = /[a-z]/i.test(v) ? '→ ' + normReading(v) : ''; };
+      document.getElementById('f').onsubmit = e => { e.preventDefault(); if (!inp.value.trim()) { inp.focus(); return; } answerReading(readingMatches(inp.value, w.r), inp.value); };
+      document.getElementById('giveup').onclick = () => answerReading(false, '');
+      setTimeout(() => { try { inp.focus(); } catch(e){} }, 50);
+    } else {
+      const opts = step === 1 ? st.rc : st.mc;
+      ans.innerHTML = `<div class="choices">${opts.map((o, i) => `<button class="choice ${step===1?'jp':''}" data-i="${i}">${esc(o)}</button>`).join('')}</div>`;
+      ans.querySelectorAll('.choice').forEach(b => b.onclick = () => {
+        if (st.locked) return;
+        const o = opts[+b.dataset.i];
+        if (step === 1) answerReading(o === w.r, o, b);
+        else answerMeaning(o === w.m, b);
+      });
+    }
+  }
+  function mark(btn, ok, correctText){
+    const all = view.querySelectorAll('.choice');
+    all.forEach(x => { if (x.textContent === correctText) x.classList.add('ok'); });
+    if (btn && !ok) btn.classList.add('ng');
+  }
+  function answerReading(ok, given, btn){
+    if (st.locked) return; st.locked = true;
+    st.readOK = ok;
+    const fb = document.getElementById('fb');
+    if (quizMode === 'choice') mark(btn, ok, st.w.r);
+    else { const f = document.getElementById('f'); if (f) f.querySelector('input').disabled = true; const g = document.getElementById('giveup'); if (g) g.remove(); }
+    fb.innerHTML = `<div class="fb ${ok?'ok':'ng'}">${ok ? '⭕ 정답' : '❌ 오답'} — <b class="jp">${esc(st.w.r)}</b>${!ok && given && quizMode==='type' ? ` <span style="color:var(--sub)">(입력: ${esc(normReading(given))})</span>` : ''}</div>`;
+    setTimeout(() => { st.step = 2; st.locked = false; draw(); }, ok ? 650 : 1300);
+  }
+  function answerMeaning(ok, btn){
+    if (st.locked) return; st.locked = true; st.done = true;
+    mark(btn, ok, st.w.m);
+    const both = ok && st.readOK;
+    if (both) { score++; wrongSet.delete(st.w.id); } else { wrong.push(st.w); wrongSet.add(st.w.id); }
+    saveWrong();
+    const ex = EX[st.w.w];
+    const fb = document.getElementById('fb');
+    fb.innerHTML = `<div class="fb ${both?'ok':'ng'}">${both ? '⭕ 완벽!' : (ok ? '뜻은 맞았지만 읽기가 틀렸어요' : '❌ 뜻: ' + esc(st.w.m))}
+      ${ex ? `<div class="jp" style="margin-top:6px">${highlight(ex.s, st.w.w)}</div><div style="color:var(--sub);font-size:13px">${esc(ex.k)}</div>` : ''}</div>
+      <div class="nav2"><button class="btn" id="info">한자 풀이</button><button class="btn primary" id="nx">${idx < qs.length-1 ? '다음 ›' : '결과 보기'}</button></div>`;
+    document.getElementById('nx').onclick = next;
+    document.getElementById('info').onclick = () => go(Detail, [st.w.id, null]);
+    speak(st.w.r);
+  }
+  function next(){
+    idx++;
+    if (idx < qs.length) { render(); window.scrollTo(0, 0); return; }
+    if (day) { const prev = best[day]; if (!prev || score > prev.score) { best[day] = {score, total: qs.length}; store.set('best', best); } }
+    showResult();
+  }
+  function showResult(){
+    view.innerHTML = `
+      <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
+        <div class="score">${score} / ${qs.length}</div>
+        <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 단어 ${wrong.length}개는 오답노트에 저장됨`}</div></div>
+      ${wrong.length ? `<h2 class="sub">틀린 단어</h2><div class="list wrongs">${wrong.map(w => `
+        <button class="card row" data-id="${w.id}"><div class="w jp">${esc(w.w)}<small>${esc(w.r)}</small></div><div class="m">${esc(w.m)}</div></button>`).join('')}</div>` : ''}
+      <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">처음부터</button></div>`;
+    view.querySelectorAll('.wrongs .row').forEach(r => r.onclick = () => go(Detail, [+r.dataset.id, wrong.map(w => w.id)]));
+    const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(Quiz, [wrong.slice(), title + ' (재도전)', null], true);
+    document.getElementById('again').onclick = () => go(Quiz, [list, title, day], true);
+  }
+  Quiz._resume = () => {
+    setHeader(title, true);
+    if (idx >= qs.length) showResult();
+    else if (st.done) next();            // 뜻까지 답한 문제 → 다음 문제로
+    else { st.locked = false; draw(); }  // 풀던 문제 그대로
+  };
+  render();
+}
+
+// ---------- boot ----------
+go(Home);
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
