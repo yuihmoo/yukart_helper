@@ -1,5 +1,5 @@
 // 오프라인 캐시: 네트워크 우선, 실패 시 캐시 (업데이트가 바로 반영되도록)
-const CACHE = 'n2-kanji-v2';
+const CACHE = 'n2-kanji-v3';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

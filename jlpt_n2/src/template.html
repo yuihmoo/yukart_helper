@@ -81,6 +81,20 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 .kj .t{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;background:var(--accent-weak);color:var(--accent);margin-left:6px;vertical-align:2px}
 .kj .p{font-size:14px;margin-top:2px}
 .kj .o{font-size:14px;color:var(--sub);margin-top:4px}
+.rd{margin-top:10px}
+.rd .use{font-size:13px;margin-bottom:6px}
+.rd .use b{color:var(--accent);font-size:16px}
+.rrow{display:flex;gap:8px;align-items:flex-start;margin-top:6px}
+.rrow .lbl{flex:0 0 auto;font-size:11px;color:var(--sub);padding:5px 0;min-width:24px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.rchip{display:inline-flex;flex-direction:column;align-items:flex-start;padding:4px 9px;border-radius:9px;background:var(--chip);border:1px solid transparent;line-height:1.3;text-align:left}
+.rchip b{font-size:15px;font-weight:600}
+.rchip .oku{color:var(--sub);font-weight:400}
+.rchip small{font-size:11px;color:var(--sub)}
+.rchip small i{font-style:normal;margin-left:3px}
+.rchip.hit{background:var(--accent);border-color:var(--accent)}
+.rchip.hit b,.rchip.hit small,.rchip.hit .oku{color:#fff}
+.rchip.link{cursor:pointer}
 .ex .s{font-size:19px;line-height:1.7}
 mark{background:var(--accent-weak);color:inherit;border-radius:4px;padding:0 2px}
 .ex .k{color:var(--sub);font-size:14px;margin-top:4px}
@@ -162,6 +176,19 @@ for (const line of RAW_EX.split('\n')) {
   if (!line || line[0]==='#') continue;
   const [w, s, k] = line.split('|');
   if (w) EX[w] = {s, k};
+}
+// 한자 읽기: 字|음독(読:例:よみ,...)|훈독(よ.み:例:よみ,...)
+const READ = {};
+for (const line of RAW_READ.split('\n')) {
+  if (!line.trim() || line[0] === '#') continue;
+  const [c, on, kun] = line.split('|');
+  if (!c) continue;
+  const items = [];
+  [['on', on], ['kun', kun]].forEach(([kind, field]) => (field || '').split(',').filter(Boolean).forEach(it => {
+    const [key, ex, exr] = it.split(':');
+    if (key) items.push({kind, key, ex: ex || '', exr: exr || ''});
+  }));
+  READ[c] = items;
 }
 const PER_DAY = 20;
 const WORDS = WORDS_JSON.map((x, i) => ({...x, id: i}));
@@ -435,6 +462,31 @@ function highlight(sentence, word){
   return esc(sentence.slice(0, i)) + '<mark>' + esc(key) + '</mark>' + esc(sentence.slice(i + key.length));
 }
 
+// 한자의 음독/훈독 목록 + 이 단어에서 쓰인 읽기 강조 + 단어장 속 다른 단어
+function readingBlock(c, w){
+  const items = READ[c] || [];
+  const segs = (w.seg || []).filter(s => s[0] === c);
+  const usedKeys = new Set(segs.map(s => s[2]).filter(Boolean));
+  const usedKana = [...new Set(segs.map(s => s[1]))];
+  const fmtKey = it => it.kind === 'kun' && it.key.includes('.')
+    ? esc(it.key.split('.')[0]) + '<span class="oku">' + esc(it.key.split('.').slice(1).join('')) + '</span>'
+    : esc(it.key);
+  const chips = kind => items.filter(it => it.kind === kind).map(it => `
+    <span class="rchip ${usedKeys.has(it.key) ? 'hit' : ''}"><b class="jp">${fmtKey(it)}</b>${it.ex ? `<small class="jp">${esc(it.ex)}<i>${esc(it.exr)}</i></small>` : ''}</span>`).join('');
+  const onC = chips('on'), kunC = chips('kun');
+  const special = segs.some(s => !s[2]);
+  const others = WORDS.filter(x => x.id !== w.id && x.w.includes(c)).slice(0, 8);
+  return `
+    <div class="rd">
+      ${usedKana.length ? `<div class="use">이 단어에서는 <b class="jp">${usedKana.map(esc).join('·')}</b>${special ? ' (특수 읽기)' : ''}</div>` : ''}
+      ${onC ? `<div class="rrow"><span class="lbl">음</span><div class="chips">${onC}</div></div>` : ''}
+      ${kunC ? `<div class="rrow"><span class="lbl">훈</span><div class="chips">${kunC}</div></div>` : ''}
+      ${others.length ? `<div class="rrow"><span class="lbl">단어장</span><div class="chips">${others.map(x => {
+        const s = (x.seg || []).find(s => s[0] === c);
+        return `<button class="rchip link" data-go="${x.id}"><b class="jp">${esc(x.w)}</b><small class="jp"><i>${esc(s ? s[1] : x.r)}</i></small></button>`; }).join('')}</div></div>` : ''}
+    </div>`;
+}
+
 function Detail(id, ids){
   const w = WORDS[id]; if (!w) { back(); return; }
   setHeader(`Day ${w.day}`, true);
@@ -455,7 +507,8 @@ function Detail(id, ids){
           <div class="kj"><div class="c jp">${c}</div><div>
             <div class="h">${esc(k.hun)}<span class="t">${esc(k.type)}</span></div>
             <div class="p">구성: ${esc(k.parts)}</div>
-            <div class="o">${esc(k.origin)}</div></div></div>` :
+            <div class="o">${esc(k.origin)}</div>
+            ${readingBlock(c, w)}</div></div>` :
           `<div class="kj"><div class="c jp">${c}</div><div class="o">자료 없음</div></div>`; }).join('')}
       </div>
       ${ex ? `<div class="card sec ex"><h3>예문</h3>
@@ -469,6 +522,7 @@ function Detail(id, ids){
       </div>
     </div>`;
   document.getElementById('tts').onclick = () => speak(w.r);
+  view.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(Detail, [+b.dataset.go, null]));
   const te = document.getElementById('ttsEx'); if (te) te.onclick = () => speak(ex.s);
   document.getElementById('prev').onclick = () => { if (pos > 0) go(Detail, [ids[pos-1], ids], true); };
   document.getElementById('next').onclick = () => { if (pos >= 0 && pos < ids.length-1) go(Detail, [ids[pos+1], ids], true); };
