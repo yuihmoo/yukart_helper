@@ -337,7 +337,7 @@ const view = document.getElementById('view'), titleEl = document.getElementById(
 let stack = [];
 function go(fn, args, replace){ if (replace) stack.pop(); stack.push([fn, args]); fn(...(args||[])); window.scrollTo(0, 0); }
 function back(){
-  if (stack.length <= 1) return;
+  if (stack.length <= 1) { location.href = './index.html'; return; }  // 앱 홈 → 선택 화면(よん/れん)
   stack.pop();
   const [fn, args] = stack[stack.length-1];
   // Detail에서 퀴즈로 돌아올 때 진행 상태를 유지 (재시작 방지)
@@ -390,7 +390,7 @@ function srsLabel(key){
 
 // ---------- home ----------
 function Home(){
-  setHeader('N2 기출 한자', false);
+  setHeader('N2 기출 한자', true);
   const perfectDays = Object.values(best).filter(v => v && v.score === v.total).length;
   const dueW = dueList('w', WORDS).length, dueG = dueList('g', GRAMMAR).length;
   view.innerHTML = `

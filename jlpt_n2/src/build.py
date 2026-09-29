@@ -2,7 +2,7 @@
 import json, re, pathlib, sys
 
 SRC = pathlib.Path(__file__).parent
-OUT = SRC.parent / 'index.html'
+OUT = SRC.parent / 'yon.html'
 
 words = json.loads((SRC / 'words.json').read_text(encoding='utf-8'))
 kanji = (SRC / 'kanji.txt').read_text(encoding='utf-8')
