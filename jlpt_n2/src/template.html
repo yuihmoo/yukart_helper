@@ -309,17 +309,9 @@ function meaningChoices(word){
 }
 
 // ---------- TTS ----------
-function speak(text){
-  try {
-    if (!('speechSynthesis' in window)) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'ja-JP'; u.rate = 0.9;
-    const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('ja'));
-    if (v) u.voice = v;
-    speechSynthesis.speak(u);
-  } catch(e) {}
-}
+/*__VOICE__*/
+const TTS = makeTTS({lang: 'ja-JP', store, T: {loading:'음성 목록을 불러오는 중…', speed:'속도', voices:'이 기기의 일본어 음성', selected:'사용 중', tryIt:'듣기', none:'일본어 음성을 찾지 못했습니다.', novelty:'효과음성', sample:'今日も日本語の勉強を頑張りましょう。', howTitle:'더 좋은 음성 받기 (iPhone)', how:'설정 › 손쉬운 사용 › 읽기 및 말하기 › 음성 › 일본어 에서 <b>Kyoko</b>·<b>O-ren</b>의 <b>향상된 음성/프리미엄</b>을 내려받은 뒤, 이 화면을 다시 열어 목록에 나타나면 선택하세요.<br>iOS 버전에 따라 웹앱에 고품질 음성이 표시되지 않을 수 있습니다.'}});
+const speak = text => TTS.speak(text);
 
 // ---------- theme ----------
 const themeBtn = document.getElementById('themeBtn');
@@ -405,6 +397,7 @@ function Home(){
       <button class="card" id="mQuiz"><div class="big jp">試</div><div><h2>Day별 퀴즈</h2><p>한자 → 읽기(히라가나) + 뜻</p></div></button>
       <button class="card" id="mGram"><div class="big jp">文</div><div><h2>기출 문형</h2><p>문형 목록 · 빈칸 채우기 퀴즈 (${GRAMMAR.length}개)</p></div></button>
       <button class="card" id="mWrong"><div class="big jp">誤</div><div><h2>오답 복습</h2><p>틀린 단어만 다시 풀기 (${wrongSet.size}개)</p></div></button>
+      <button class="card" id="mVoice"><div class="big jp">音</div><div><h2>음성 설정</h2><p>발음 음성·속도 선택</p></div></button>
     </div>
     <p class="note">출처: JLPT N2 기출 어휘·문형 2021~2026 (해커스 기출 PDF). 한자 포함 어휘 ${WORDS.length}개 · 주요 문형 ${GRAMMAR.length}개.<br>
     유래는 『설문해자』 계열 전통 해석을 바탕으로 한 요약이며, 학설이 갈리는 글자는 암기하기 쉬운 풀이를 택했습니다.<br>
@@ -413,6 +406,7 @@ function Home(){
   document.getElementById('mGram').onclick = () => go(GBook, [store.get('gbookDay', 1)]);
   document.getElementById('mBook').onclick = () => go(Book, [store.get('bookDay', 1)]);
   document.getElementById('mQuiz').onclick = () => go(QuizMenu);
+  document.getElementById('mVoice').onclick = () => go(VoiceSettings);
   document.getElementById('mWrong').onclick = () => {
     const list = WORDS.filter(w => wrongSet.has(w.id));
     if (!list.length) { alert('오답노트가 비어 있습니다.'); return; }
@@ -758,6 +752,8 @@ function GQuiz(list, title, gday){
   }
   draw();
 }
+
+function VoiceSettings(){ setHeader('음성 설정', true); TTS.screen(view, esc); }
 
 // ---------- boot ----------
 go(Home);

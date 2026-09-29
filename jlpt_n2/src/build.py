@@ -130,5 +130,6 @@ data = (f'const WORDS_JSON = {js_str(words)};\n'
         f'const RAW_GRAMMAR = {js_str(grammar)};\n'
         f'const RAW_READ = {js_str(readings_raw)};')
 html = (SRC / 'template.html').read_text(encoding='utf-8').replace('/*__DATA__*/', data, 1)
+html = html.replace('/*__VOICE__*/', (SRC.parent / 'shared' / 'voice.js').read_text(encoding='utf-8'), 1)
 OUT.write_text(html, encoding='utf-8')
 print(f'OK: {OUT} ({len(html)//1024} KB, 단어 {len(words)}, 한자 {len(kmap)}, 문형 {gcount})')

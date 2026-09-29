@@ -164,17 +164,9 @@ const GDAYS = chunk(GRAMMAR, G_PER_DAY);
 GDAYS.forEach((d, i) => d.forEach(g => g.day = i + 1));
 
 // ---------- TTS ----------
-function speak(text){
-  try {
-    if (!('speechSynthesis' in window)) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'ko-KR'; u.rate = 0.9;
-    const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('ko'));
-    if (v) u.voice = v;
-    speechSynthesis.speak(u);
-  } catch(e) {}
-}
+/*__VOICE__*/
+const TTS = makeTTS({lang: 'ko-KR', store, T: {loading:'音声リストを読み込み中…', speed:'速さ', voices:'この端末の韓国語音声', selected:'使用中', tryIt:'試聴', none:'韓国語の音声が見つかりません。', novelty:'効果音声', sample:'오늘도 한국어 공부 열심히 해요.', howTitle:'より良い音声を入れる (iPhone)', how:'設定 › アクセシビリティ › 読み上げコンテンツ › 声 › 韓国語 で <b>Yuna</b> などの <b>拡張/プレミアム</b> 音声をダウンロードし、この画面を開き直して一覧に出たら選んでください。<br>iOSのバージョンによってはWebアプリに高品質音声が表示されない場合があります。'}});
+const speak = text => TTS.speak(text);
 
 // ---------- theme (첫 화면·よん과 공유) ----------
 function applyTheme(t){ if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); }
@@ -246,6 +238,7 @@ function Home(){
       <button class="card" id="mQuiz"><div class="big ko">퀴</div><div><h2>Day別クイズ</h2><p>意味を選ぶ · 韓国語を選ぶ · 書く</p></div></button>
       <button class="card" id="mGram"><div class="big ko">문</div><div><h2>中級文法</h2><p>文法リスト · 穴埋めクイズ (${GRAMMAR.length})</p></div></button>
       <button class="card" id="mWrong"><div class="big kj">誤</div><div><h2>間違いノート</h2><p>間違えた単語だけ (${wrongSet.size})</p></div></button>
+      <button class="card" id="mVoice"><div class="big kj">音</div><div><h2>音声設定</h2><p>読み上げの声・速さ</p></div></button>
     </div>
     <p class="note">出典: 韓国語能力試験(TOPIK)中級 単語2662・中級文法148 (trilingual.jp PDF)。<br>
     漢字語の対応は日本語訳の漢字と韓国漢字音(KANJIDIC)を照合して自動判定しています(${WORDS.filter(w => w.hj).length}語)。<br>
@@ -254,6 +247,7 @@ function Home(){
   document.getElementById('mBook').onclick = () => go(Book, [store.get('bookDay', 1)]);
   document.getElementById('mQuiz').onclick = () => go(QuizMenu);
   document.getElementById('mGram').onclick = () => go(GBook, [store.get('gbookDay', 1)]);
+  document.getElementById('mVoice').onclick = () => go(VoiceSettings);
   document.getElementById('mWrong').onclick = () => {
     const list = WORDS.filter(w => wrongSet.has(w.id));
     if (!list.length) { alert('間違いノートは空です。'); return; }
@@ -535,6 +529,8 @@ function GQuiz(list, title, gday){
   }
   draw();
 }
+
+function VoiceSettings(){ setHeader('音声設定'); TTS.screen(view, esc); }
 
 // ---------- boot ----------
 go(Home);
