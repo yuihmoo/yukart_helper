@@ -118,6 +118,15 @@ mark{background:var(--accent-weak);color:inherit;border-radius:4px;padding:0 2px
 .dgrid b{display:block;font-size:17px}.dgrid span{font-size:12px;color:var(--sub)}
 .dgrid .perfect{border-color:var(--ok)}
 h2.sub{font-size:14px;color:var(--sub);margin:18px 0 8px;font-weight:600}
+.menu .card:disabled{opacity:.5}
+.grow{display:block;width:100%;text-align:left;padding:12px 14px}
+.gp{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.gp .jp{font-size:18px}.gp .gm{font-size:13px;color:var(--sub);text-align:right}
+.gx{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.gx .s{font-size:17px;line-height:1.7}.gx .k{font-size:14px;color:var(--sub);margin-top:2px}
+.gx .meta{font-size:12px;color:var(--sub);margin-top:6px}
+.gsent{font-size:21px;line-height:1.8;text-align:left}
+.blank{display:inline-block;min-width:3.5em;border-bottom:2px solid var(--accent);color:var(--accent);text-align:center}
 </style>
 </head>
 <body>
@@ -161,6 +170,20 @@ for (let i = 0; i < WORDS.length; i += PER_DAY) DAYS.push(WORDS.slice(i, i + PER
 // 마지막 Day가 너무 짧으면 앞 Day에 합침
 if (DAYS.length > 1 && DAYS[DAYS.length-1].length < PER_DAY/2) { const last = DAYS.pop(); DAYS[DAYS.length-1].push(...last); }
 WORDS.forEach(w => w.day = DAYS.findIndex(d => d.includes(w)) + 1);
+
+// 문형: 문형|뜻|예문([정답])|해석|연도|그룹
+const GRAMMAR = [];
+for (const line of RAW_GRAMMAR.split('\n')) {
+  if (!line.trim() || line[0] === '#') continue;
+  const [p, m, s, k, years, g] = line.split('|');
+  const mt = /\[([^\]]+)\]/.exec(s || '');
+  if (!p || !mt) continue;   // 형식이 깨진 줄은 건너뜀 (빌드 단계에서도 검사)
+  GRAMMAR.push({id: GRAMMAR.length, p, m, s, a: mt[1], k: k || '', years: (years || '').split(',').filter(Boolean), g: (g || '').trim()});
+}
+const GDAYS = [];
+for (let i = 0; i < GRAMMAR.length; i += PER_DAY) GDAYS.push(GRAMMAR.slice(i, i + PER_DAY));
+if (GDAYS.length > 1 && GDAYS[GDAYS.length-1].length < PER_DAY/2) { const last = GDAYS.pop(); GDAYS[GDAYS.length-1].push(...last); }
+GRAMMAR.forEach(g => g.day = GDAYS.findIndex(d => d.includes(g)) + 1);
 
 const isKanji = c => /[一-鿿々]/.test(c);
 const uniqKanji = w => [...new Set([...w].filter(c => /[一-鿿]/.test(c)))];
@@ -304,23 +327,63 @@ const best = store.get('best', {});
 const saveMemo = () => store.set('memo', [...memorized]);
 const saveWrong = () => store.set('wrong', [...wrongSet]);
 
+// ---------- SRS (간격 반복, SM-2 간소화) ----------
+// key: 'w<단어id>' | 'g<문형id>' → {r: 연속 정답 수, i: 간격(일), e: 난이도 계수, d: 다음 복습일(자정 ms)}
+const DAY_MS = 864e5;
+const srs = (() => { const v = store.get('srs', {}); return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; })();
+const today0 = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
+function srsGrade(key, ok){
+  const t = today0();
+  const c = srs[key] || {r: 0, i: 0, e: 2.5, d: t};
+  if (ok) {
+    // 아직 복습일이 안 된 카드를 미리 맞힌 경우 간격을 늘리지 않음 (같은 날 반복 풀이로 간격이 폭주하는 것 방지)
+    if (c.r > 0 && c.d > t) return;
+    c.r += 1;
+    c.i = c.r === 1 ? 1 : c.r === 2 ? 3 : Math.min(180, Math.round(c.i * c.e));
+    c.e = Math.min(3.0, c.e + 0.1);
+  } else {
+    c.r = 0; c.i = 0; c.e = Math.max(1.3, c.e - 0.2);
+  }
+  c.d = t + c.i * DAY_MS;   // 틀리면 i=0 → 오늘 다시 복습 대상
+  srs[key] = c; store.set('srs', srs);
+}
+function dueList(prefix, arr){
+  const t = today0();
+  return Object.keys(srs)
+    .filter(k => k[0] === prefix && srs[k] && srs[k].d <= t && arr[+k.slice(1)])
+    .sort((a, b) => srs[a].d - srs[b].d)
+    .map(k => arr[+k.slice(1)]);
+}
+const REVIEW_MAX = 30;
+function srsLabel(key){
+  const c = srs[key]; if (!c) return '미학습';
+  const days = Math.round((c.d - today0()) / DAY_MS);
+  return days <= 0 ? '복습 필요' : `${days}일 후 복습`;
+}
+
 // ---------- home ----------
 function Home(){
   setHeader('N2 기출 한자', false);
   const perfectDays = Object.values(best).filter(v => v && v.score === v.total).length;
+  const dueW = dueList('w', WORDS).length, dueG = dueList('g', GRAMMAR).length;
   view.innerHTML = `
     <div class="stats">
       <div class="card stat"><b>${memorized.size}</b><span>암기 완료 / ${WORDS.length}</span></div>
       <div class="card stat"><b>${perfectDays}</b><span>만점 Day / ${DAYS.length}</span></div>
-      <div class="card stat"><b>${wrongSet.size}</b><span>오답노트</span></div>
+      <div class="card stat"><b>${dueW + dueG}</b><span>오늘 복습</span></div>
     </div>
     <div class="menu">
+      <button class="card" id="mReview"><div class="big jp">復</div><div><h2>오늘의 복습</h2><p>간격 반복 · 단어 ${dueW} · 문형 ${dueG}</p></div></button>
       <button class="card" id="mBook"><div class="big jp">暗</div><div><h2>단어 암기장</h2><p>부수 분해 · 유래 · 예문</p></div></button>
       <button class="card" id="mQuiz"><div class="big jp">試</div><div><h2>Day별 퀴즈</h2><p>한자 → 읽기(히라가나) + 뜻</p></div></button>
+      <button class="card" id="mGram"><div class="big jp">文</div><div><h2>기출 문형</h2><p>문형 목록 · 빈칸 채우기 퀴즈 (${GRAMMAR.length}개)</p></div></button>
       <button class="card" id="mWrong"><div class="big jp">誤</div><div><h2>오답 복습</h2><p>틀린 단어만 다시 풀기 (${wrongSet.size}개)</p></div></button>
     </div>
-    <p class="note">출처: JLPT N2 기출 어휘 2021~2026 (해커스 기출 PDF) 중 한자가 포함된 ${WORDS.length}개 · Day당 ${PER_DAY}개.<br>
-    유래는 『설문해자』 계열 전통 해석을 바탕으로 한 요약이며, 학설이 갈리는 글자는 암기하기 쉬운 풀이를 택했습니다.</p>`;
+    <p class="note">출처: JLPT N2 기출 어휘·문형 2021~2026 (해커스 기출 PDF). 한자 포함 어휘 ${WORDS.length}개 · 주요 문형 ${GRAMMAR.length}개.<br>
+    유래는 『설문해자』 계열 전통 해석을 바탕으로 한 요약이며, 학설이 갈리는 글자는 암기하기 쉬운 풀이를 택했습니다.<br>
+    복습 주기: 정답 시 1일 → 3일 → 이후 간격×난이도 계수, 오답 시 당일 재복습.</p>`;
+  document.getElementById('mReview').onclick = () => go(Review);
+  document.getElementById('mGram').onclick = () => go(GBook, [store.get('gbookDay', 1)]);
   document.getElementById('mBook').onclick = () => go(Book, [store.get('bookDay', 1)]);
   document.getElementById('mQuiz').onclick = () => go(QuizMenu);
   document.getElementById('mWrong').onclick = () => {
@@ -384,7 +447,7 @@ function Detail(id, ids){
         <div class="word jp">${esc(w.w)}</div>
         <div class="reading">${esc(w.r)}</div>
         <div class="mean">${esc(w.m)}</div>
-        <div class="yrs">기출: ${w.years.join(', ')}년</div>
+        <div class="yrs">기출: ${w.years.join(', ')}년 · ${esc(srsLabel('w' + id))}</div>
         <button class="tts" id="tts">🔊 발음 듣기</button>
       </div>
       <div class="card sec"><h3>한자 분해 · 유래</h3>
@@ -499,6 +562,7 @@ function Quiz(list, title, day){
     mark(btn, ok, st.w.m);
     const both = ok && st.readOK;
     if (both) { score++; wrongSet.delete(st.w.id); } else { wrong.push(st.w); wrongSet.add(st.w.id); }
+    srsGrade('w' + st.w.id, both);
     saveWrong();
     const ex = EX[st.w.w];
     const fb = document.getElementById('fb');
@@ -534,6 +598,111 @@ function Quiz(list, title, day){
     else { st.locked = false; draw(); }  // 풀던 문제 그대로
   };
   render();
+}
+
+// ---------- review (SRS) ----------
+function Review(){
+  setHeader('오늘의 복습', true);
+  const dw = dueList('w', WORDS), dg = dueList('g', GRAMMAR);
+  const learnedW = Object.keys(srs).filter(k => k[0] === 'w').length, learnedG = Object.keys(srs).filter(k => k[0] === 'g').length;
+  view.innerHTML = `
+    <div class="menu">
+      <button class="card" id="rW" ${dw.length ? '' : 'disabled'}><div class="big jp">単</div><div><h2>단어 복습 ${dw.length}개</h2><p>${dw.length ? `한 번에 최대 ${REVIEW_MAX}개` : '오늘 복습할 단어가 없습니다'}</p></div></button>
+      <button class="card" id="rG" ${dg.length ? '' : 'disabled'}><div class="big jp">文</div><div><h2>문형 복습 ${dg.length}개</h2><p>${dg.length ? `한 번에 최대 ${REVIEW_MAX}개` : '오늘 복습할 문형이 없습니다'}</p></div></button>
+    </div>
+    <p class="note">학습 기록: 단어 ${learnedW}/${WORDS.length} · 문형 ${learnedG}/${GRAMMAR.length}<br>
+    Day별 퀴즈·문형 퀴즈에서 푼 항목이 자동으로 복습 일정에 등록됩니다. 맞히면 복습 간격이 늘어나고(1일→3일→약 8일→…), 틀리면 오늘 다시 나옵니다.</p>`;
+  if (dw.length) document.getElementById('rW').onclick = () => go(Quiz, [dw.slice(0, REVIEW_MAX), '단어 복습', null]);
+  if (dg.length) document.getElementById('rG').onclick = () => go(GQuiz, [dg.slice(0, REVIEW_MAX), '문형 복습', null]);
+}
+
+// ---------- grammar book ----------
+const gFull = s => s.replace(/\[([^\]]+)\]/, '$1');
+const gMarked = s => { const m = /\[([^\]]+)\]/.exec(s); return m ? esc(s.slice(0, m.index)) + '<mark>' + esc(m[1]) + '</mark>' + esc(s.slice(m.index + m[0].length)) : esc(s); };
+let gOpen = null;
+function GBook(day){
+  day = Math.min(Math.max(1, day|0), GDAYS.length);
+  store.set('gbookDay', day);
+  setHeader('기출 문형', true);
+  const gb = store.get('gbest', {});
+  view.innerHTML = `
+    <div class="days">${GDAYS.map((d, i) => `<button class="${i+1===day?'on':''}" data-d="${i+1}">Day ${i+1}${gb[i+1] ? ` · ${gb[i+1].score}/${gb[i+1].total}` : ''}</button>`).join('')}</div>
+    <div class="nav2" style="margin:0 0 10px"><button class="btn primary" id="gq">Day ${day} 문형 퀴즈</button><button class="btn" id="gall">전체 랜덤 20</button></div>
+    <div class="list">${GDAYS[day-1].map(g => `
+      <button class="card grow" data-id="${g.id}">
+        <div class="gp"><span class="jp">${esc(g.p)}</span><span class="gm">${esc(g.m)}</span></div>
+        ${gOpen === g.id ? `<div class="gx"><div class="jp s">${gMarked(g.s)}</div><div class="k">${esc(g.k)}</div>
+          <div class="meta">기출 ${esc(g.years.join(', '))} · ${esc(srsLabel('g' + g.id))}</div></div>` : ''}
+      </button>`).join('')}</div>`;
+  const on = view.querySelector('.days .on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
+  view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { gOpen = null; go(GBook, [+b.dataset.d], true); });
+  view.querySelectorAll('.grow').forEach(b => b.onclick = () => {
+    const id = +b.dataset.id;
+    gOpen = gOpen === id ? null : id;
+    GBook(day);
+    if (gOpen !== null) speak(gFull(GRAMMAR[id].s));
+  });
+  document.getElementById('gq').onclick = () => go(GQuiz, [GDAYS[day-1], `문형 Day ${day}`, day]);
+  document.getElementById('gall').onclick = () => go(GQuiz, [shuffle(GRAMMAR).slice(0, 20), '문형 랜덤', null]);
+}
+
+// 오답 보기: 같은 유사 그룹·같은 정답 문자열 제외, 정답과 길이가 비슷한 것 우선
+function grammarChoices(g){
+  const cands = shuffle(GRAMMAR.filter(x => x.id !== g.id && x.a !== g.a && !(g.g && x.g === g.g)));
+  cands.sort((x, y) => Math.abs(x.a.length - g.a.length) - Math.abs(y.a.length - g.a.length));
+  const picked = [];
+  for (const c of cands.slice(0, 12).sort(() => Math.random() - 0.5)) {
+    if (picked.length >= 3) break;
+    if (!picked.includes(c.a)) picked.push(c.a);
+  }
+  return shuffle([g.a, ...picked]);
+}
+
+function GQuiz(list, title, gday){
+  const qs = shuffle(list);
+  let idx = 0, score = 0, locked = false; const wrong = [];
+  setHeader(title, true);
+  function draw(){
+    const g = qs[idx], opts = grammarChoices(g);
+    locked = false;
+    const blank = g.s.replace(/\[[^\]]+\]/, '<span class="blank">　？　</span>');
+    view.innerHTML = `
+      <div class="qtop"><span>${idx+1} / ${qs.length}</span><div class="bar"><i style="width:${idx/qs.length*100}%"></i></div><span>정답 ${score}</span></div>
+      <div class="card qcard"><div class="step">빈칸에 들어갈 알맞은 것은?</div>
+        <div class="jp gsent">${blank.split(/(<span class="blank">　？　<\/span>)/).map((t, i) => i % 2 ? t : esc(t)).join('')}</div></div>
+      <div class="choices">${opts.map((o, i) => `<button class="choice jp" data-i="${i}">${esc(o)}</button>`).join('')}</div>
+      <div id="fb"></div>`;
+    view.querySelectorAll('.choice').forEach(b => b.onclick = () => {
+      if (locked) return; locked = true;
+      const ok = opts[+b.dataset.i] === g.a;
+      view.querySelectorAll('.choice').forEach(x => { if (x.textContent === g.a) x.classList.add('ok'); });
+      if (!ok) b.classList.add('ng');
+      if (ok) score++; else wrong.push(g);
+      srsGrade('g' + g.id, ok);
+      document.getElementById('fb').innerHTML = `
+        <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 정답' : '❌ 오답'} — <b class="jp">${esc(g.p)}</b> : ${esc(g.m)}
+          <div class="jp" style="margin-top:6px">${gMarked(g.s)}</div><div style="color:var(--sub);font-size:13px">${esc(g.k)}</div></div>
+        <div class="nav2"><button class="btn primary" id="nx">${idx < qs.length-1 ? '다음 ›' : '결과 보기'}</button></div>`;
+      document.getElementById('nx').onclick = next;
+      speak(gFull(g.s));
+    });
+  }
+  function next(){
+    idx++;
+    if (idx < qs.length) { draw(); window.scrollTo(0, 0); return; }
+    if (gday) { const gb = store.get('gbest', {}); if (!gb[gday] || score > gb[gday].score) { gb[gday] = {score, total: qs.length}; store.set('gbest', gb); } }
+    view.innerHTML = `
+      <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
+        <div class="score">${score} / ${qs.length}</div>
+        <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 문형 ${wrong.length}개는 오늘 복습 목록에 추가됨`}</div></div>
+      ${wrong.length ? `<h2 class="sub">틀린 문형</h2><div class="list">${wrong.map(g => `
+        <div class="card grow"><div class="gp"><span class="jp">${esc(g.p)}</span><span class="gm">${esc(g.m)}</span></div>
+          <div class="gx"><div class="jp s">${gMarked(g.s)}</div><div class="k">${esc(g.k)}</div></div></div>`).join('')}</div>` : ''}
+      <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">처음부터</button></div>`;
+    const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(GQuiz, [wrong.slice(), title + ' (재도전)', null], true);
+    document.getElementById('again').onclick = () => go(GQuiz, [list, title, gday], true);
+  }
+  draw();
 }
 
 // ---------- boot ----------

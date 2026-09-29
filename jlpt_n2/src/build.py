@@ -30,13 +30,28 @@ missing_e = [w['w'] for w in words if w['w'] not in emap]
 if missing_k or missing_e:
     sys.exit(f'누락 한자: {missing_k} / 누락 예문: {missing_e}')
 
+grammar = (SRC / 'grammar.txt').read_text(encoding='utf-8')
+gcount = 0
+seen_p = set()
+for ln in grammar.splitlines():
+    if not ln.strip() or ln.startswith('#'):
+        continue
+    parts = ln.split('|')
+    if len(parts) != 6 or not re.search(r'\[[^\]]+\]', parts[2]):
+        sys.exit(f'grammar.txt 형식 오류: {ln}')
+    if parts[0] in seen_p:
+        sys.exit(f'grammar.txt 중복 문형: {parts[0]}')
+    seen_p.add(parts[0])
+    gcount += 1
+
 def js_str(s):
     # </script> 조기 종료 방지
     return json.dumps(s, ensure_ascii=False).replace('</', '<\\/')
 
 data = (f'const WORDS_JSON = {js_str(words)};\n'
         f'const RAW_KANJI = {js_str(kanji)};\n'
-        f'const RAW_EX = {js_str(examples)};')
+        f'const RAW_EX = {js_str(examples)};\n'
+        f'const RAW_GRAMMAR = {js_str(grammar)};')
 html = (SRC / 'template.html').read_text(encoding='utf-8').replace('/*__DATA__*/', data, 1)
 OUT.write_text(html, encoding='utf-8')
-print(f'OK: {OUT} ({len(html)//1024} KB, 단어 {len(words)}, 한자 {len(kmap)})')
+print(f'OK: {OUT} ({len(html)//1024} KB, 단어 {len(words)}, 한자 {len(kmap)}, 문형 {gcount})')
