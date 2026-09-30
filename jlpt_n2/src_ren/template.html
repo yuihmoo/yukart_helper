@@ -150,9 +150,17 @@ const chunk = (arr, n) => { const d = []; for (let i = 0; i < arr.length; i += n
 
 // ---------- data ----------
 const PER_DAY = 30, G_PER_DAY = 20;
-const WORDS = VOCAB.map((x, i) => ({id: i, n: x.n, ko: x.ko, ja: x.ja, hj: HANJA[x.n] || null}));
-const DAYS = chunk(WORDS, PER_DAY);
-DAYS.forEach((d, i) => d.forEach(w => w.day = i + 1));
+const WORDS = VOCAB.map((x, i) => ({id: i, n: x.n, no: x.no || x.n, lv: x.lv ? 1 : 0, ko: x.ko, ja: x.ja, hj: HANJA[x.n] || null}));
+// 중급(기존 Day 번호 유지) 뒤에 초급을 이어붙임 → 저장된 최고점·암기 기록의 Day/ID가 바뀌지 않음
+const MID_DAYS = chunk(WORDS.filter(w => !w.lv), PER_DAY), BEG_DAYS = chunk(WORDS.filter(w => w.lv), PER_DAY);
+const DAYS = [...MID_DAYS, ...BEG_DAYS];
+DAYS.forEach((d, i) => { d.lv = i < MID_DAYS.length ? 0 : 1; d.forEach(w => w.day = i + 1); });
+const LV_NAME = ['中級', '初級'];
+const dayLabel = g => DAYS[g-1] && DAYS[g-1].lv ? `初級 Day ${g - MID_DAYS.length}` : `中級 Day ${g}`;
+const lvDays = lv => DAYS.map((d, i) => i + 1).filter(g => DAYS[g-1].lv === lv);
+let curLv = store.get('lv', 0) === 1 ? 1 : 0;
+const setLv = lv => { curLv = lv ? 1 : 0; store.set('lv', curLv); };
+const lvSeg = () => `<div class="seg">${LV_NAME.map((n, i) => `<button data-lv="${i}" class="${curLv===i?'on':''}">${n} ${WORDS.filter(w => w.lv === i).length}語</button>`).join('')}</div>`;
 // 한자 → 그 한자를 쓰는 단어 목록 (음절 위치 포함)
 const BY_HANJA = {};
 WORDS.forEach(w => (w.hj || []).forEach(([syl, k], pos) => (BY_HANJA[k] = BY_HANJA[k] || []).push({w, pos})));
@@ -235,16 +243,16 @@ function Home(){
     <div class="menu">
       <button class="card" id="mReview"><div class="big kj">復</div><div><h2>今日の復習</h2><p>間隔反復 · 単語 ${dw} · 文法 ${dg}</p></div></button>
       <button class="card" id="mBook"><div class="big ko">단</div><div><h2>単語帳</h2><p>漢字語の分解 · 同じ漢字の単語</p></div></button>
-      <button class="card" id="mQuiz"><div class="big ko">퀴</div><div><h2>Day別クイズ</h2><p>意味を選ぶ · 韓国語を選ぶ · 書く</p></div></button>
+      <button class="card" id="mQuiz"><div class="big ko">퀴</div><div><h2>Day別クイズ</h2><p>初級・中級 · 意味を選ぶ · 韓国語を選ぶ · 書く</p></div></button>
       <button class="card" id="mGram"><div class="big ko">문</div><div><h2>中級文法</h2><p>文法リスト · 穴埋めクイズ (${GRAMMAR.length})</p></div></button>
       <button class="card" id="mWrong"><div class="big kj">誤</div><div><h2>間違いノート</h2><p>間違えた単語だけ (${wrongSet.size})</p></div></button>
       <button class="card" id="mVoice"><div class="big kj">音</div><div><h2>音声設定</h2><p>読み上げの声・速さ</p></div></button>
     </div>
-    <p class="note">出典: 韓国語能力試験(TOPIK)中級 単語2662・中級文法148 (trilingual.jp PDF)。<br>
+    <p class="note">出典: 韓国語能力試験(TOPIK)初級 単語1671・中級 単語2662・中級文法148 (trilingual.jp PDF)。初級のうち中級と重複する1語(올림픽)は中級側に収録。<br>
     漢字語の対応は日本語訳の漢字と韓国漢字音(KANJIDIC)を照合して自動判定しています(${WORDS.filter(w => w.hj).length}語)。<br>
     復習間隔: 正解 → 1日 → 3日 → 以降は間隔×係数、不正解 → 当日もう一度。</p>`;
   document.getElementById('mReview').onclick = () => go(Review);
-  document.getElementById('mBook').onclick = () => go(Book, [store.get('bookDay', 1)]);
+  document.getElementById('mBook').onclick = () => go(Book, [store.get('bookDay', lvDays(curLv)[0])]);
   document.getElementById('mQuiz').onclick = () => go(QuizMenu);
   document.getElementById('mGram').onclick = () => go(GBook, [store.get('gbookDay', 1)]);
   document.getElementById('mVoice').onclick = () => go(VoiceSettings);
@@ -271,11 +279,12 @@ function Review(){
 // ---------- book ----------
 let bookFilter = 'all';
 function Book(day){
-  day = Math.min(Math.max(1, day|0), DAYS.length); store.set('bookDay', day);
+  day = Math.min(Math.max(1, day|0), DAYS.length); store.set('bookDay', day); setLv(DAYS[day-1].lv);
   setHeader('単語帳');
   const list = DAYS[day-1].filter(w => bookFilter === 'all' || (bookFilter === 'todo' ? !memorized.has(w.id) : bookFilter === 'hj' ? w.hj : memorized.has(w.id)));
   view.innerHTML = `
-    <div class="days">${DAYS.map((d, i) => `<button class="${i+1===day?'on':''}" data-d="${i+1}">Day ${i+1}</button>`).join('')}</div>
+    ${lvSeg()}
+    <div class="days">${lvDays(curLv).map(g => `<button class="${g===day?'on':''}" data-d="${g}">Day ${curLv ? g - MID_DAYS.length : g}</button>`).join('')}</div>
     <div class="toolbar">
       <button class="pill ${bookFilter==='all'?'on':''}" data-f="all">全部 ${DAYS[day-1].length}</button>
       <button class="pill ${bookFilter==='todo'?'on':''}" data-f="todo">未暗記</button>
@@ -288,16 +297,17 @@ function Book(day){
         <div class="w ko">${esc(w.ko)}${w.hj ? `<span class="hjtag kj">${esc(w.hj.map(h => h[1]).join(''))}</span>` : ''}</div>
         <div class="m">${esc(w.ja)}</div>
       </div>`).join('') || '<p class="note">該当する単語がありません。</p>'}</div>
-    <div class="nav2"><button class="btn primary" id="toQuiz">Day ${day} クイズ</button></div>`;
+    <div class="nav2"><button class="btn primary" id="toQuiz">${dayLabel(day)} クイズ</button></div>`;
   const on = view.querySelector('.days .on'); if (on) on.scrollIntoView({inline:'center', block:'nearest'});
   view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => go(Book, [+b.dataset.d], true));
+  view.querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { const lv = +b.dataset.lv; if (lv === curLv) return; setLv(lv); go(Book, [lvDays(lv)[0]], true); });
   view.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { bookFilter = b.dataset.f; Book(day); });
   view.querySelectorAll('.row').forEach(r => r.onclick = e => {
     const id = +r.dataset.id;
     if (e.target.closest('[data-chk]')) { memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo(); Book(day); return; }
     go(Detail, [id, list.map(w => w.id)]);
   });
-  document.getElementById('toQuiz').onclick = () => go(Quiz, [DAYS[day-1], `Day ${day} クイズ`, day]);
+  document.getElementById('toQuiz').onclick = () => go(Quiz, [DAYS[day-1], `${dayLabel(day)} クイズ`, day]);
 }
 
 // 단어의 한글 음절 중 pos번째(한자 대응) 음절을 강조해서 표시
@@ -308,7 +318,7 @@ function koMarked(ko, pos){
 
 function Detail(id, ids){
   const w = WORDS[id]; if (!w) { back(); return; }
-  setHeader(`Day ${w.day}`);
+  setHeader(dayLabel(w.day));
   const pos = ids ? ids.indexOf(id) : -1;
   const hjBlock = w.hj ? w.hj.map(([syl, k], p) => {
     const others = (BY_HANJA[k] || []).filter(x => x.w.id !== w.id).slice(0, 10);
@@ -327,7 +337,7 @@ function Detail(id, ids){
       <div class="word ko">${wordHtml}</div>
       ${w.hj && w.hj.map(h => h[1]).join('') !== w.ja ? `<div class="kj" style="font-size:20px;color:var(--sub)">${esc(w.hj.map(h => h[1]).join(''))}</div>` : ''}
       <div class="mean">${esc(w.ja)}</div>
-      <div class="meta">No.${w.n} · ${esc(srsLabel('w' + w.id))}</div>
+      <div class="meta">${LV_NAME[w.lv]} No.${w.no} · ${esc(srsLabel('w' + w.id))}</div>
       <button class="tts" id="tts">🔊 発音を聞く</button>
     </div>
     <div class="card sec"><h3>漢字で分解 · 同じ漢字を使う単語</h3>${hjBlock}</div>
@@ -367,15 +377,17 @@ function QuizMenu(){
       <button data-m="ja2ko" class="${quizMode==='ja2ko'?'on':''}">韓国語を選ぶ</button>
       <button data-m="type" class="${quizMode==='type'?'on':''}">韓国語で書く</button>
     </div>
+    ${lvSeg()}
     <p class="note" style="margin-top:0">「書く」は韓国語キーボードが必要です（設定 › 一般 › キーボード）。スペースは無視して判定します。</p>
-    <div class="dgrid">${DAYS.map((d, i) => { const b = best[i+1]; const pf = b && b.score === b.total;
-      return `<button class="card ${pf?'perfect':''}" data-d="${i+1}"><b>Day ${i+1}</b><span>${b ? `最高 ${b.score}/${b.total}` : `${d.length}問`}</span></button>`; }).join('')}
+    <div class="dgrid">${lvDays(curLv).map(g => { const d = DAYS[g-1], b = best[g]; const pf = b && b.score === b.total;
+      return `<button class="card ${pf?'perfect':''}" data-d="${g}"><b>Day ${curLv ? g - MID_DAYS.length : g}</b><span>${b ? `最高 ${b.score}/${b.total}` : `${d.length}問`}</span></button>`; }).join('')}
       <button class="card" data-d="all"><b>ランダム</b><span>20問</span></button>
     </div>`;
   view.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { quizMode = b.dataset.m; store.set('quizMode', quizMode); QuizMenu(); });
+  view.querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { setLv(+b.dataset.lv); QuizMenu(); });
   view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
-    if (b.dataset.d === 'all') go(Quiz, [shuffle(WORDS).slice(0, 20), 'ランダム', null]);
-    else { const d = +b.dataset.d; go(Quiz, [DAYS[d-1], `Day ${d} クイズ`, d]); }
+    if (b.dataset.d === 'all') go(Quiz, [shuffle(WORDS.filter(w => w.lv === curLv)).slice(0, 20), `${LV_NAME[curLv]} ランダム`, null]);
+    else { const d = +b.dataset.d; go(Quiz, [DAYS[d-1], `${dayLabel(d)} クイズ`, d]); }
   });
 }
 
