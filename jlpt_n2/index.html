@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ことば帳</title>
+<meta name="description" content="よん: JLPT N2 기출 한자 / れん: TOPIK 韓国語">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ことば帳">
+<meta name="theme-color" content="#16181d">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<style>
+:root{--bg:#f6f5f2;--card:#fff;--ink:#1d1f24;--sub:#6b6f78;--line:#e4e2dc;--accent:#c8553d;--accent-weak:#f6e3de;--blue:#3d6fc8;--blue-weak:#e0e9f8;--shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#16181d;--card:#1f2229;--ink:#eceae5;--sub:#9a9ea8;--line:#2e323b;--accent:#e27a5f;--accent-weak:#3a2622;--blue:#7fa3e6;--blue-weak:#1f2a3d;--shadow:none}}
+:root[data-theme="dark"]{--bg:#16181d;--card:#1f2229;--ink:#eceae5;--sub:#9a9ea8;--line:#2e323b;--accent:#e27a5f;--accent-weak:#3a2622;--blue:#7fa3e6;--blue-weak:#1f2a3d;--shadow:none}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Apple SD Gothic Neo","Noto Sans JP","Noto Sans KR",sans-serif;min-height:100vh;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);display:flex}
+main{margin:auto;width:100%;max-width:560px;padding:24px 16px;display:grid;gap:16px}
+h1{font-size:15px;color:var(--sub);font-weight:600;text-align:center;margin:0 0 8px;letter-spacing:.05em}
+a.pick{display:flex;align-items:center;gap:18px;padding:26px 22px;border-radius:22px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);color:inherit;text-decoration:none}
+a.pick:active{transform:scale(.98)}
+.badge{flex:0 0 auto;width:72px;height:72px;border-radius:18px;display:grid;place-items:center;font-size:40px;font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif}
+.yon .badge{background:var(--accent-weak);color:var(--accent)}
+.ren .badge{background:var(--blue-weak);color:var(--blue)}
+.name{font-size:30px;font-weight:800;line-height:1.1}
+.desc{font-size:14px;color:var(--sub);margin-top:4px}
+.pick.off{opacity:.5;pointer-events:none}
+</style>
+</head>
+<body>
+<main>
+  <h1>ことば帳 · 단어장</h1>
+  <a class="pick yon" href="yon.html">
+    <div class="badge">漢</div>
+    <div><div class="name">よん</div><div class="desc">JLPT N2 기출 한자 · 문형</div></div>
+  </a>
+  <a class="pick ren" id="ren" href="ren.html">
+    <div class="badge">한</div>
+    <div><div class="name">れん</div><div class="desc" id="renDesc">TOPIK 韓国語 単語 · 文法</div></div>
+  </a>
+</main>
+<script>
+try { const t = localStorage.getItem('n2:theme'); if (t) document.documentElement.setAttribute('data-theme', JSON.parse(t)); } catch (e) {}
+// ren.html이 아직 배포되지 않았으면 비활성 표시 (오프라인이면 캐시 응답으로 판단)
+fetch('ren.html').then(r => { if (!r.ok) throw 0; }).catch(() => {
+  document.getElementById('ren').classList.add('off');
+  document.getElementById('renDesc').textContent = '準備中 · 준비 중';
+});
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
