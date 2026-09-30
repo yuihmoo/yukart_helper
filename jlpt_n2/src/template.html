@@ -399,7 +399,7 @@ function Home(){
       <button class="card" id="mWrong"><div class="big jp">誤</div><div><h2>오답 복습</h2><p>틀린 단어만 다시 풀기 (${wrongSet.size}개)</p></div></button>
       <button class="card" id="mVoice"><div class="big jp">音</div><div><h2>음성 설정</h2><p>발음 음성·속도 선택</p></div></button>
     </div>
-    <p class="note">출처: JLPT N2 기출 어휘·문형 2021~2026 (해커스 기출 PDF). 한자 포함 어휘 ${WORDS.length}개 · 주요 문형 ${GRAMMAR.length}개.<br>
+    <p class="note">출처: JLPT N2 기출 어휘·문형 2021~2026 (해커스 기출 PDF). 어휘 ${WORDS.length}개 · 문형 ${GRAMMAR.length}개 (PDF 전체 수록).<br>
     유래는 『설문해자』 계열 전통 해석을 바탕으로 한 요약이며, 학설이 갈리는 글자는 암기하기 쉬운 풀이를 택했습니다.<br>
     복습 주기: 정답 시 1일 → 3일 → 이후 간격×난이도 계수, 오답 시 당일 재복습.</p>`;
   document.getElementById('mReview').onclick = () => go(Review);
@@ -431,7 +431,7 @@ function Book(day){
     <div class="list">${list.map(w => `
       <div class="card row ${memorized.has(w.id)?'done':''}" data-id="${w.id}">
         <button class="chk ${memorized.has(w.id)?'on':''}" data-chk="${w.id}" aria-label="암기 체크">${memorized.has(w.id)?'✓':''}</button>
-        <div class="w jp">${esc(w.w)}<small>${esc(w.r)}</small></div>
+        <div class="w jp">${esc(w.w)}${w.r !== w.w ? `<small>${esc(w.r)}</small>` : ''}</div>
         <div class="m">${esc(w.m)}</div>
       </div>`).join('') || '<p class="note">해당하는 단어가 없습니다.</p>'}</div>
     <div class="nav2"><button class="btn primary" id="toQuiz">Day ${day} 퀴즈 풀기</button></div>`;
@@ -491,12 +491,13 @@ function Detail(id, ids){
     <div class="detail">
       <div class="card head">
         <div class="word jp">${esc(w.w)}</div>
-        <div class="reading">${esc(w.r)}</div>
+        ${w.r !== w.w ? `<div class="reading">${esc(w.r)}</div>` : ''}
         <div class="mean">${esc(w.m)}</div>
         <div class="yrs">기출: ${w.years.join(', ')}년 · ${esc(srsLabel('w' + id))}</div>
         <button class="tts" id="tts">🔊 발음 듣기</button>
       </div>
       <div class="card sec"><h3>한자 분해 · 유래</h3>
+        ${ks.length ? '' : `<p class="o" style="margin:0;color:var(--sub)">${/[\u30a0-\u30ff]/.test(w.w) ? '가타카나 외래어' : '가나로만 쓰는 단어'}라 한자 분해는 없습니다. 뜻과 예문으로 외워 주세요.</p>`}
         ${ks.map(c => { const k = KANJI[c]; return k ? `
           <div class="kj"><div class="c jp">${c}</div><div>
             <div class="h">${esc(k.hun)}<span class="t">${esc(k.type)}</span></div>
@@ -554,7 +555,8 @@ function Quiz(list, title, day){
   setHeader(title, true);
   function render(){
     const w = qs[idx];
-    st = {w, step: 1, readOK: null, rc: quizMode === 'choice' ? readingChoices(w) : null, mc: meaningChoices(w), locked: false};
+    const hasK = uniqKanji(w.w).length > 0;   // 가나만으로 된 단어는 읽기 = 표기 → 뜻 문제만
+    st = {w, step: hasK ? 1 : 2, readOK: hasK ? null : true, rc: hasK && quizMode === 'choice' ? readingChoices(w) : null, mc: meaningChoices(w), locked: false};
     draw();
   }
   function draw(){
@@ -564,7 +566,7 @@ function Quiz(list, title, day){
       <div class="card qcard">
         <div class="step">${step === 1 ? '① 읽는 법은?' : '② 뜻은?'}</div>
         <div class="word jp">${esc(w.w)}</div>
-        <div class="revealed">${step === 2 ? esc(w.r) : ''}</div>
+        <div class="revealed">${step === 2 && w.r !== w.w ? esc(w.r) : ''}</div>
       </div>
       <div id="ans"></div>
       <div id="fb"></div>`;
@@ -633,7 +635,7 @@ function Quiz(list, title, day){
         <div class="score">${score} / ${qs.length}</div>
         <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 단어 ${wrong.length}개는 오답노트에 저장됨`}</div></div>
       ${wrong.length ? `<h2 class="sub">틀린 단어</h2><div class="list wrongs">${wrong.map(w => `
-        <button class="card row" data-id="${w.id}"><div class="w jp">${esc(w.w)}<small>${esc(w.r)}</small></div><div class="m">${esc(w.m)}</div></button>`).join('')}</div>` : ''}
+        <button class="card row" data-id="${w.id}"><div class="w jp">${esc(w.w)}${w.r !== w.w ? `<small>${esc(w.r)}</small>` : ''}</div><div class="m">${esc(w.m)}</div></button>`).join('')}</div>` : ''}
       <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">처음부터</button></div>`;
     view.querySelectorAll('.wrongs .row').forEach(r => r.onclick = () => go(Detail, [+r.dataset.id, wrong.map(w => w.id)]));
     const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(Quiz, [wrong.slice(), title + ' (재도전)', null], true);
