@@ -804,6 +804,20 @@ function GQuiz(list, title, gday){
 
 function VoiceSettings(){ setHeader('음성 설정', true); TTS.screen(view, esc); }
 
+// ---------- keyboard: ←/→ 이전·다음, Enter 퀴즈 다음 문제, 1~4 보기 선택 ----------
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;   // 직접 입력 중에는 방해하지 않음
+  const btn = id => { const b = document.getElementById(id); return b && !b.disabled ? b : null; };
+  let b = null;
+  if (e.key === 'ArrowRight') b = btn('nx') || btn('next');
+  else if (e.key === 'ArrowLeft') b = btn('prev');
+  else if (e.key === 'Enter') b = btn('nx');
+  else if (/^[1-4]$/.test(e.key)) b = view.querySelectorAll('.choice')[+e.key - 1] || null;
+  if (b) { e.preventDefault(); b.click(); }   // preventDefault: 포커스된 버튼의 Enter 기본 클릭과 중복 방지
+});
+
 // ---------- boot ----------
 go(Home);
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
