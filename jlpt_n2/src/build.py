@@ -121,6 +121,7 @@ def build(out, words, gram, conf):
             f'const RAW_READ = {js(read_sub)};')
     html = (SRC / 'template.html').read_text(encoding='utf-8').replace('/*__DATA__*/', data, 1)
     html = html.replace('/*__VOICE__*/', (ROOT / 'shared' / 'voice.js').read_text(encoding='utf-8'), 1)
+    html = html.replace('/*__BACKUP__*/', (ROOT / 'shared' / 'backup.js').read_text(encoding='utf-8'), 1)
     (ROOT / out).write_text(html, encoding='utf-8')
     print(f'OK: {out} ({len(html)//1024} KB, 단어 {len(words)}, 한자 {len(used)}, 문형 {len(gram)})')
 

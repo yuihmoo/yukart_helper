@@ -174,6 +174,8 @@ GDAYS.forEach((d, i) => d.forEach(g => g.day = i + 1));
 
 // ---------- TTS ----------
 /*__VOICE__*/
+/*__BACKUP__*/
+const BK = makeBackup({esc, T: BACKUP_T.ja});
 const TTS = makeTTS({lang: 'ko-KR', store, T: {loading:'音声リストを読み込み中…', speed:'速さ', voices:'この端末の韓国語音声', selected:'使用中', tryIt:'試聴', none:'韓国語の音声が見つかりません。', novelty:'効果音声', sample:'오늘도 한국어 공부 열심히 해요.', howTitle:'より良い音声を入れる (iPhone)', how:'設定 › アクセシビリティ › 読み上げコンテンツ › 声 › 韓国語 で <b>Yuna</b> などの <b>拡張/プレミアム</b> 音声をダウンロードし、この画面を開き直して一覧に出たら選んでください。<br>iOSのバージョンによってはWebアプリに高品質音声が表示されない場合があります。'}});
 const speak = text => TTS.speak(text);
 
@@ -236,6 +238,7 @@ function Home(){
   const perfect = Object.values(best).filter(v => v && v.score === v.total).length;
   const dw = dueList('w', WORDS).length, dg = dueList('g', GRAMMAR).length;
   view.innerHTML = `
+    <div id="bkBanner"></div>
     <div class="stats">
       <div class="card stat"><b>${memorized.size}</b><span>覚えた / ${WORDS.length}</span></div>
       <div class="card stat"><b>${perfect}</b><span>満点 Day / ${DAYS.length}</span></div>
@@ -248,6 +251,7 @@ function Home(){
       <button class="card" id="mGram"><div class="big ko">문</div><div><h2>中級文法</h2><p>文法リスト · 穴埋めクイズ (${GRAMMAR.length})</p></div></button>
       <button class="card" id="mWrong"><div class="big kj">誤</div><div><h2>間違いノート</h2><p>間違えた単語だけ (${wrongSet.size})</p></div></button>
       <button class="card" id="mVoice"><div class="big kj">音</div><div><h2>音声設定</h2><p>読み上げの声・速さ</p></div></button>
+      <button class="card" id="mBackup"><div class="big kj">保</div><div><h2>学習記録のバックアップ</h2><p>書き出し · 読み込み · 自動バックアップ</p></div></button>
     </div>
     <p class="note">出典: 韓国語能力試験(TOPIK)初級 単語1671・中級 単語2662・中級文法148 (trilingual.jp PDF)。初級のうち中級と重複する1語(올림픽)は中級側に収録。<br>
     漢字語の対応は日本語訳の漢字と韓国漢字音(KANJIDIC)を照合して自動判定しています(${WORDS.filter(w => w.hj).length}語)。<br>
@@ -257,6 +261,8 @@ function Home(){
   document.getElementById('mQuiz').onclick = () => go(QuizMenu);
   document.getElementById('mGram').onclick = () => go(GBook, [store.get('gbookDay', 1)]);
   document.getElementById('mVoice').onclick = () => go(VoiceSettings);
+  document.getElementById('mBackup').onclick = () => go(BackupScreen);
+  BK.banner(document.getElementById('bkBanner'), () => go(BackupScreen));
   document.getElementById('mWrong').onclick = () => {
     const list = WORDS.filter(w => wrongSet.has(w.id));
     if (!list.length) { alert('間違いノートは空です。'); return; }
@@ -572,6 +578,7 @@ function GQuiz(list, title, gday){
   draw();
 }
 
+function BackupScreen(){ setHeader('学習記録のバックアップ', true); BK.screen(view); }
 function VoiceSettings(){ setHeader('音声設定'); TTS.screen(view, esc); }
 
 // ---------- keyboard: ←/→ 이전·다음, Enter 외웠어요(상세)·다음 문제(퀴즈), 1~4 보기 선택(퀴즈)·1 발음·2 예문 듣기(상세), Backspace 이전 화면 ----------

@@ -340,6 +340,8 @@ function meaningChoices(word){
 
 // ---------- TTS ----------
 /*__VOICE__*/
+/*__BACKUP__*/
+const BK = makeBackup({esc, T: BACKUP_T.ko});
 const TTS = makeTTS({lang: 'ja-JP', store, T: {loading:'음성 목록을 불러오는 중…', speed:'속도', voices:'이 기기의 일본어 음성', selected:'사용 중', tryIt:'듣기', none:'일본어 음성을 찾지 못했습니다.', novelty:'효과음성', sample:'今日も日本語の勉強を頑張りましょう。', howTitle:'더 좋은 음성 받기 (iPhone)', how:'설정 › 손쉬운 사용 › 읽기 및 말하기 › 음성 › 일본어 에서 <b>Kyoko</b>·<b>O-ren</b>의 <b>향상된 음성/프리미엄</b>을 내려받은 뒤, 이 화면을 다시 열어 목록에 나타나면 선택하세요.<br>iOS 버전에 따라 웹앱에 고품질 음성이 표시되지 않을 수 있습니다.'}});
 const speak = text => TTS.speak(text);
 
@@ -417,6 +419,7 @@ function Home(){
   const dueW = dueList('w', WORDS).length, dueG = dueList('g', GRAMMAR).length;
   const gdays = GDAYS.map(d => d.label);
   view.innerHTML = `
+    <div id="bkBanner"></div>
     <div class="stats">
       <div class="card stat"><b>${memorized.size}</b><span>암기 완료 / ${WORDS.length}</span></div>
       <div class="card stat"><b>${perfect}</b><span>만점 ${IS_MAIN ? '세트' : 'Day'} / ${QSETS.length}</span></div>
@@ -430,6 +433,7 @@ function Home(){
       <button class="card" id="mWrong"><div class="big jp">誤</div><div><h2>오답 복습</h2><p>틀린 단어만 다시 풀기 (${wrongSet.size}개)</p></div></button>
       ${IS_MAIN ? `<button class="card" id="mOther"><div class="big jp">過</div><div><h2>최신 기출 어휘·문형</h2><p>2021~2026 기출 · 별도 학습 기록</p></div></button>` : ''}
       <button class="card" id="mVoice"><div class="big jp">音</div><div><h2>음성 설정</h2><p>발음 음성·속도 선택</p></div></button>
+      <button class="card" id="mBackup"><div class="big jp">保</div><div><h2>학습 기록 백업</h2><p>파일로 내보내기 · 불러오기 · 자동 백업</p></div></button>
     </div>
     <p class="note">${IS_MAIN
       ? `출처: 해커스 JLPT N2 한 권으로 합격 「필수 단어·문형 암기장」. 단어 ${WORDS.length}개(1~25일, 일차가 다르면 중복 수록) · 문형 ${GRAMMAR.length}개(26~30일).<br>
@@ -442,6 +446,8 @@ function Home(){
   document.getElementById('mBook').onclick = () => go(Book, [store.get('bookDay', 1)]);
   document.getElementById('mQuiz').onclick = () => go(QuizMenu);
   document.getElementById('mVoice').onclick = () => go(VoiceSettings);
+  document.getElementById('mBackup').onclick = () => go(BackupScreen);
+  BK.banner(document.getElementById('bkBanner'), () => go(BackupScreen));
   const mo = document.getElementById('mOther'); if (mo) mo.onclick = () => { location.href = CONF.other; };
   document.getElementById('mWrong').onclick = () => {
     const list = WORDS.filter(w => wrongSet.has(w.id));
@@ -803,6 +809,7 @@ function GQuiz(list, title, gday){
   draw();
 }
 
+function BackupScreen(){ setHeader('학습 기록 백업', true); BK.screen(view); }
 function VoiceSettings(){ setHeader('음성 설정', true); TTS.screen(view, esc); }
 
 // ---------- keyboard: ←/→ 이전·다음, Enter 외웠어요(상세)·다음 문제(퀴즈), 1~4 보기 선택(퀴즈)·1 발음·2 예문 듣기(상세), Backspace 이전 화면 ----------
