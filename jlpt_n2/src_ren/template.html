@@ -544,7 +544,7 @@ function GQuiz(list, title, gday){
 
 function VoiceSettings(){ setHeader('音声設定'); TTS.screen(view, esc); }
 
-// ---------- keyboard: ←/→ 이전·다음, Enter 외웠어요(상세)·다음 문제(퀴즈), 1~4 보기 선택, 오른쪽 Ctrl 발음 ----------
+// ---------- keyboard: ←/→ 이전·다음, Enter 외웠어요(상세)·다음 문제(퀴즈), 1~4 보기 선택, 오른쪽 Ctrl 발음, Backspace 이전 화면 ----------
 document.addEventListener('keydown', e => {
   // 오른쪽 Ctrl: 발음 듣기 (ctrlKey 검사보다 먼저 처리, 길게 누를 때 반복 재생 방지)
   if (e.code === 'ControlRight') { if (!e.repeat) { const t = document.getElementById('tts'); if (t) { e.preventDefault(); t.click(); } } return; }
@@ -552,6 +552,7 @@ document.addEventListener('keydown', e => {
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;   // 직접 입력 중에는 방해하지 않음
   const btn = id => { const b = document.getElementById(id); return b && !b.disabled ? b : null; };
+  if (e.key === 'Backspace') { if (!e.repeat) { e.preventDefault(); back(); } return; }   // 이전 화면 (뒤로 버튼과 동일)
   let b = null;
   if (e.key === 'ArrowRight') b = btn('nx') || btn('next');
   else if (e.key === 'ArrowLeft') b = btn('prev');
