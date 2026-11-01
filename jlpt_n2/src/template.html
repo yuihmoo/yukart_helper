@@ -484,10 +484,11 @@ function Book(day){
 }
 
 function highlight(sentence, word){
-  // 활용형 대응: 단어의 한자 어간(처음 가나 앞까지)으로 강조
+  // 활용형 대응: 기본형 → する/だ 제거 → 끝 가나 제거 → 앞쪽 한자 순서로 문장 속 위치를 찾음
   const stem = word.replace(/だ$/, '');
-  let key = sentence.includes(stem) ? stem : (word.match(/^[^぀-ゟ]+/) || [''])[0];
-  if (!key || !sentence.includes(key)) return esc(sentence);
+  const cands = [stem, word.replace(/する$/, ''), word.length > 2 ? word.slice(0, -1) : '', (word.match(/^[^぀-ゟ]+/) || [''])[0]];
+  const key = cands.find(k => k && sentence.includes(k));
+  if (!key) return esc(sentence);
   const i = sentence.indexOf(key);
   return esc(sentence.slice(0, i)) + '<mark>' + esc(key) + '</mark>' + esc(sentence.slice(i + key.length));
 }

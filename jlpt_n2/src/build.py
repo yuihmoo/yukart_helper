@@ -132,7 +132,7 @@ for w in main_words:
         sys.exit(f'main/words.json 항목 오류: {w}')
     w['years'] = w.pop('yrs')
 main_gram = check_grammar(json.loads((SRC / 'main' / 'grammar.json').read_text(encoding='utf-8')))
-build('yon.html', prepare_words(main_words, False), main_gram, {
+build('yon.html', prepare_words(main_words, True), main_gram, {
     'set': 'main', 'prefix': 'n2m:', 'title': 'N2 필수 단어', 'back': './index.html', 'other': './yon-gichul.html'})
 
 # ---------- gichul: 최신 기출 ----------
