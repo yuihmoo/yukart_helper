@@ -74,6 +74,7 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 .head .meta{font-size:12px;color:var(--sub);margin-top:6px}
 .sec{margin-top:12px;padding:16px}
 .sec h3{margin:0 0 10px;font-size:13px;color:var(--sub);font-weight:600}
+.ex .s{font-size:19px;line-height:1.7}.ex .k{color:var(--sub);font-size:14px;margin-top:4px}
 .hj{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
 .hj:first-of-type{border-top:0;padding-top:0}
 .hj .c{font-size:44px;line-height:64px;text-align:center;background:var(--chip);border-radius:12px;height:64px}
@@ -150,7 +151,7 @@ const chunk = (arr, n) => { const d = []; for (let i = 0; i < arr.length; i += n
 
 // ---------- data ----------
 const PER_DAY = 30, G_PER_DAY = 20;
-const WORDS = VOCAB.map((x, i) => ({id: i, n: x.n, no: x.no || x.n, lv: x.lv ? 1 : 0, ko: x.ko, ja: x.ja, hj: HANJA[x.n] || null}));
+const WORDS = VOCAB.map((x, i) => ({id: i, n: x.n, no: x.no || x.n, lv: x.lv ? 1 : 0, ko: x.ko, ja: x.ja, hj: HANJA[x.n] || null, ex: EXAMPLES[x.n] || null}));
 // 중급(기존 Day 번호 유지) 뒤에 초급을 이어붙임 → 저장된 최고점·암기 기록의 Day/ID가 바뀌지 않음
 const MID_DAYS = chunk(WORDS.filter(w => !w.lv), PER_DAY), BEG_DAYS = chunk(WORDS.filter(w => w.lv), PER_DAY);
 const DAYS = [...MID_DAYS, ...BEG_DAYS];
@@ -310,6 +311,29 @@ function Book(day){
   document.getElementById('toQuiz').onclick = () => go(Quiz, [DAYS[day-1], `${dayLabel(day)} クイズ`, day]);
 }
 
+// 예문 속 표제어 강조: 기본형 → '다' 뗀 어간 → '하다' 뗀 어근 → 활용형(마지막 음절은 초성만 비교) 순으로 찾음
+function hangulParts(ch){ const o = ch.charCodeAt(0) - 0xAC00; return (o >= 0 && o < 11172) ? [Math.floor(o / 588), Math.floor((o % 588) / 28)] : null; }
+function exMarked(sentence, word){
+  const ko = String(word).replace(/^[〜~]/, '');
+  const stem = ko.endsWith('다') ? ko.slice(0, -1) : ko;
+  const cands = [ko, stem, ko.endsWith('하다') ? ko.slice(0, -2) : '', stem.length > 1 ? stem.slice(0, -1) : ''].filter(Boolean);
+  let at = -1, len = 0;
+  for (const c of cands) { const i = sentence.indexOf(c); if (i >= 0) { at = i; len = c.length; break; } }
+  if (at < 0 && stem && [...stem].every(hangulParts)) {
+    const L = stem.length;
+    for (let i = 0; i + L <= sentence.length && at < 0; i++) {
+      const seg = sentence.slice(i, i + L);
+      if (![...seg].every(hangulParts)) continue;
+      let ok = true;
+      for (let k = 0; k < L - 1; k++) { const a = hangulParts(seg[k]), b = hangulParts(stem[k]); if (a[0] !== b[0] || a[1] !== b[1]) { ok = false; break; } }
+      const a = hangulParts(seg[L-1]), b = hangulParts(stem[L-1]);
+      if (ok && a[0] === b[0] && (L > 1 || a[1] === b[1])) { at = i; len = L; }
+    }
+  }
+  if (at < 0) return esc(sentence);
+  return esc(sentence.slice(0, at)) + '<mark>' + esc(sentence.slice(at, at + len)) + '</mark>' + esc(sentence.slice(at + len));
+}
+
 // 단어의 한글 음절 중 pos번째(한자 대응) 음절을 강조해서 표시
 function koMarked(ko, pos){
   let k = -1;
@@ -340,6 +364,10 @@ function Detail(id, ids){
       <div class="meta">${LV_NAME[w.lv]} No.${w.no} · ${esc(srsLabel('w' + w.id))}</div>
       <button class="tts" id="tts">🔊 発音を聞く</button>
     </div>
+    ${w.ex ? `<div class="card sec ex"><h3>例文</h3>
+      <div class="s ko">${exMarked(w.ex[0], w.ko)}</div>
+      <div class="k">${esc(w.ex[1])}</div>
+      <button class="tts" id="ttsEx">🔊 例文を聞く</button></div>` : ''}
     <div class="card sec"><h3>漢字で分解 · 同じ漢字を使う単語</h3>${hjBlock}</div>
     <div class="nav2">
       <button class="btn" id="prev" ${pos <= 0 ? 'disabled' : ''}>‹ 前へ</button>
@@ -347,6 +375,7 @@ function Detail(id, ids){
       <button class="btn" id="next" ${pos < 0 || pos >= ids.length-1 ? 'disabled' : ''}>次へ ›</button>
     </div>`;
   document.getElementById('tts').onclick = () => speak(w.ko);
+  const te = document.getElementById('ttsEx'); if (te) te.onclick = () => speak(w.ex[0]);
   view.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(Detail, [+b.dataset.go, null]));
   document.getElementById('prev').onclick = () => { if (pos > 0) go(Detail, [ids[pos-1], ids], true); };
   document.getElementById('next').onclick = () => { if (pos >= 0 && pos < ids.length-1) go(Detail, [ids[pos+1], ids], true); };
@@ -433,7 +462,8 @@ function Quiz(list, title, day){
     saveWrong(); srsGrade('w' + w.id, ok);
     document.getElementById('fb').innerHTML = `
       <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 正解' : '❌ 不正解'} — <b class="ko">${esc(w.ko)}</b>${w.hj ? ` <span class="kj">(${esc(w.hj.map(h => h[1]).join(''))})</span>` : ''} : ${esc(w.ja)}
-        ${!ok && typed ? `<div style="color:var(--sub);font-size:13px">入力: ${esc(typed)}</div>` : ''}</div>
+        ${!ok && typed ? `<div style="color:var(--sub);font-size:13px">入力: ${esc(typed)}</div>` : ''}
+        ${w.ex ? `<div class="ko" style="margin-top:6px">${exMarked(w.ex[0], w.ko)}</div><div style="color:var(--sub);font-size:13px">${esc(w.ex[1])}</div>` : ''}</div>
       <div class="nav2"><button class="btn" id="info">詳しく</button><button class="btn primary" id="nx">${idx < qs.length-1 ? '次へ ›' : '結果'}</button></div>`;
     document.getElementById('nx').onclick = next;
     document.getElementById('info').onclick = () => go(Detail, [w.id, null]);
