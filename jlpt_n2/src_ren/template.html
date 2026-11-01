@@ -544,10 +544,8 @@ function GQuiz(list, title, gday){
 
 function VoiceSettings(){ setHeader('音声設定'); TTS.screen(view, esc); }
 
-// ---------- keyboard: ←/→ 이전·다음, Enter 외웠어요(상세)·다음 문제(퀴즈), 1~4 보기 선택, 오른쪽 Ctrl 발음, Backspace 이전 화면 ----------
+// ---------- keyboard: ←/→ 이전·다음, Enter 외웠어요(상세)·다음 문제(퀴즈), 1~4 보기 선택(퀴즈)·1 발음·2 예문 듣기(상세), Backspace 이전 화면 ----------
 document.addEventListener('keydown', e => {
-  // 오른쪽 Ctrl: 발음 듣기 (ctrlKey 검사보다 먼저 처리, 길게 누를 때 반복 재생 방지)
-  if (e.code === 'ControlRight') { if (!e.repeat) { const t = document.getElementById('tts'); if (t) { e.preventDefault(); t.click(); } } return; }
   if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;   // 직접 입력 중에는 방해하지 않음
@@ -561,7 +559,12 @@ document.addEventListener('keydown', e => {
     const m = btn('memo');
     b = btn('nx') || (m ? (m.classList.contains('primary') ? m : btn('next')) : null);
   }
-  else if (/^[1-4]$/.test(e.key)) b = view.querySelectorAll('.choice')[+e.key - 1] || null;
+  else if (/^[1-4]$/.test(e.key)) {
+    const ch = view.querySelectorAll('.choice');
+    if (ch.length) b = ch[+e.key - 1] || null;                 // 퀴즈: 보기 선택
+    else if (!e.repeat && e.key === '1') b = btn('tts');       // 단어 상세: 1 발음 듣기
+    else if (!e.repeat && e.key === '2') b = btn('ttsEx');     //            2 예문 듣기
+  }
   if (b) { e.preventDefault(); b.click(); }   // preventDefault: 포커스된 버튼의 Enter 기본 클릭과 중복 방지
 });
 
