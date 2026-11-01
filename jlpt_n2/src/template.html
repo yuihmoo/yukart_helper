@@ -140,6 +140,8 @@ h2.sub{font-size:14px;color:var(--sub);margin:18px 0 8px;font-weight:600}
 .gx .s{font-size:17px;line-height:1.7}.gx .k{font-size:14px;color:var(--sub);margin-top:2px}
 .gx .meta{font-size:12px;color:var(--sub);margin-top:6px}
 .gsent{font-size:21px;line-height:1.8;text-align:left}
+.sub.cat{margin:14px 0 2px;font-size:12px}
+.qparts{flex-wrap:wrap}.qparts .btn{flex:1 1 40%}.qparts small{opacity:.8;font-weight:400;margin-left:2px}
 .blank{display:inline-block;min-width:3.5em;border-bottom:2px solid var(--accent);color:var(--accent);text-align:center}
 </style>
 </head>
@@ -160,9 +162,15 @@ h2.sub{font-size:14px;color:var(--sub);margin:18px 0 8px;font-weight:600}
 "use strict";
 // ---------- storage (iOS 사파리 개인정보 보호 모드 등에서 localStorage 예외 방어) ----------
 const store = {
-  get(k, d){ try{ const v = localStorage.getItem('n2:'+k); return v==null ? d : JSON.parse(v); }catch(e){ return d; } },
-  set(k, v){ try{ localStorage.setItem('n2:'+k, JSON.stringify(v)); }catch(e){} }
+  get(k, d){ try{ const v = localStorage.getItem(CONF.prefix+k); return v==null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(CONF.prefix+k, JSON.stringify(v)); }catch(e){} }
 };
+// 테마는 모든 앱(첫 화면·よん·れん)이 같은 키를 공유
+const themeStore = {
+  get(){ try{ const v = localStorage.getItem('n2:theme'); return v==null ? null : JSON.parse(v); }catch(e){ return null; } },
+  set(v){ try{ localStorage.setItem('n2:theme', JSON.stringify(v)); }catch(e){} }
+};
+const IS_MAIN = CONF.set === 'main';
 
 // ---------- data ----------
 const KANJI = {};
@@ -190,27 +198,44 @@ for (const line of RAW_READ.split('\n')) {
   }));
   READ[c] = items;
 }
-const PER_DAY = 20;
-const WORDS = WORDS_JSON.map((x, i) => ({...x, id: i}));
-const DAYS = [];
-for (let i = 0; i < WORDS.length; i += PER_DAY) DAYS.push(WORDS.slice(i, i + PER_DAY));
-// 마지막 Day가 너무 짧으면 앞 Day에 합침
-if (DAYS.length > 1 && DAYS[DAYS.length-1].length < PER_DAY/2) { const last = DAYS.pop(); DAYS[DAYS.length-1].push(...last); }
-WORDS.forEach(w => w.day = DAYS.findIndex(d => d.includes(w)) + 1);
-
-// 문형: 문형|뜻|예문([정답])|해석|연도|그룹
-const GRAMMAR = [];
-for (const line of RAW_GRAMMAR.split('\n')) {
-  if (!line.trim() || line[0] === '#') continue;
-  const [p, m, s, k, years, g] = line.split('|');
-  const mt = /\[([^\]]+)\]/.exec(s || '');
-  if (!p || !mt) continue;   // 형식이 깨진 줄은 건너뜀 (빌드 단계에서도 검사)
-  GRAMMAR.push({id: GRAMMAR.length, p, m, s, a: mt[1], k: k || '', years: (years || '').split(',').filter(Boolean), g: (g || '').trim()});
+const PER_DAY = 20, PART_MAX = 25;
+const CIRC = '①②③④⑤⑥⑦⑧⑨⑩';
+const WORDS = WORDS_JSON.map((x, i) => ({...x, years: x.years || [], id: i}));
+// BOOK: 단어장의 Day 단위 / QSETS: 퀴즈 단위 (main은 하루 분량이 많아 25문제 이하로 나눔)
+const BOOK = [], QSETS = [];
+if (IS_MAIN) {
+  const days = [...new Set(WORDS.map(w => w.day))].sort((a, b) => a - b);
+  days.forEach(d => {
+    const ws = WORDS.filter(w => w.day === d);
+    BOOK.push({label: `${d}일`, short: `${d}일`, words: ws});
+    const n = Math.ceil(ws.length / PART_MAX), size = Math.ceil(ws.length / n);
+    for (let p = 0; p < n; p++) QSETS.push({key: `${d}-${p+1}`, label: `${d}일 ${CIRC[p] || p+1}`, words: ws.slice(p*size, (p+1)*size), book: BOOK.length});
+  });
+  WORDS.forEach(w => w.day = days.indexOf(w.day) + 1);   // BOOK 인덱스(1부터)로 통일
+} else {
+  for (let i = 0; i < WORDS.length; i += PER_DAY) BOOK.push({words: WORDS.slice(i, i + PER_DAY)});
+  // 마지막 Day가 너무 짧으면 앞 Day에 합침
+  if (BOOK.length > 1 && BOOK[BOOK.length-1].words.length < PER_DAY/2) { const last = BOOK.pop(); BOOK[BOOK.length-1].words.push(...last.words); }
+  BOOK.forEach((b, i) => { b.label = `Day ${i+1}`; b.short = `Day ${i+1}`; b.words.forEach(w => w.day = i + 1);
+    QSETS.push({key: i + 1, label: `Day ${i+1}`, words: b.words, book: i + 1}); });   // 기존 최고점 키(1,2,…) 유지
 }
+const qsetsOf = d => QSETS.filter(q => q.book === d);
+const POS = {'명': '명사', '동': '동사', 'い형': 'い형용사', 'な형': 'な형용사', '부': '부사', '접': '접속사', '구': '구'};
+
+// 문형: {p, m, ex:[{s:'…[정답]…', k}], years, g, day?}
+const GRAMMAR = GRAM_JSON.map((g, i) => {
+  const ex = (g.ex || []).filter(e => /\[[^\]]+\]/.test(e.s));
+  return {...g, id: i, ex, years: g.years || [], g: (g.g || '').trim(), s: ex[0].s, k: ex[0].k, a: /\[([^\]]+)\]/.exec(ex[0].s)[1]};
+});
 const GDAYS = [];
-for (let i = 0; i < GRAMMAR.length; i += PER_DAY) GDAYS.push(GRAMMAR.slice(i, i + PER_DAY));
-if (GDAYS.length > 1 && GDAYS[GDAYS.length-1].length < PER_DAY/2) { const last = GDAYS.pop(); GDAYS[GDAYS.length-1].push(...last); }
-GRAMMAR.forEach(g => g.day = GDAYS.findIndex(d => d.includes(g)) + 1);
+if (IS_MAIN) {
+  [...new Set(GRAMMAR.map(g => g.day))].sort((a, b) => a - b).forEach(d => GDAYS.push(Object.assign(GRAMMAR.filter(g => g.day === d), {label: `${d}일`})));
+} else {
+  for (let i = 0; i < GRAMMAR.length; i += PER_DAY) GDAYS.push(GRAMMAR.slice(i, i + PER_DAY));
+  if (GDAYS.length > 1 && GDAYS[GDAYS.length-1].length < PER_DAY/2) { const last = GDAYS.pop(); GDAYS[GDAYS.length-1].push(...last); }
+  GDAYS.forEach((d, i) => d.label = `Day ${i+1}`);
+}
+GDAYS.forEach((d, i) => d.forEach(g => g.gday = i + 1));
 
 const isKanji = c => /[一-鿿々]/.test(c);
 const uniqKanji = w => [...new Set([...w].filter(c => /[一-鿿]/.test(c)))];
@@ -294,16 +319,21 @@ function readingChoices(word){
   const pool = new Set();
   shuffle(mutations(word.r)).slice(0, 3).forEach(x => pool.add(x));
   // 같은 길이대의 다른 단어 읽기로 채움
-  const others = shuffle(WORDS.filter(w => w.id !== word.id && Math.abs(w.r.length - word.r.length) <= 2)).map(w => w.r);
+  const others = shuffle(WORDS.filter(w => w.id !== word.id && w.w !== word.w && Math.abs(w.r.length - word.r.length) <= 2)).map(w => w.r);
   for (const o of others) { if (pool.size >= 3) break; if (o !== ans) pool.add(o); }
   pool.delete(ans);
   return shuffle([ans, ...[...pool].slice(0, 3)]);
 }
+// 뜻 토큰(쉼표 구분)이 하나라도 겹치면 동의어로 보고 오답 보기에서 제외
+const mTokens = m => String(m).split(/[,，、/]/).map(t => t.replace(/[~～()（）\s]/g, '')).filter(Boolean);
+const mOverlap = (a, b) => { const A = new Set(mTokens(a)); return mTokens(b).some(t => A.has(t)); };
 function meaningChoices(word){
   const pool = [];
-  for (const w of shuffle(WORDS)) {
+  // 같은 품사를 먼저 시도 → 부족하면 전체
+  const cands = [...shuffle(WORDS.filter(w => word.pos && w.pos === word.pos)), ...shuffle(WORDS)];
+  for (const w of cands) {
     if (pool.length >= 3) break;
-    if (w.id !== word.id && w.m !== word.m && !pool.includes(w.m)) pool.push(w.m);
+    if (w.id !== word.id && w.w !== word.w && w.m !== word.m && !pool.includes(w.m) && !mOverlap(w.m, word.m) && !pool.some(p => mOverlap(p, w.m))) pool.push(w.m);
   }
   return shuffle([word.m, ...pool]);
 }
@@ -316,12 +346,12 @@ const speak = text => TTS.speak(text);
 // ---------- theme ----------
 const themeBtn = document.getElementById('themeBtn');
 function applyTheme(t){ if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); }
-applyTheme(store.get('theme', null));
+applyTheme(themeStore.get());
 themeBtn.onclick = () => {
   const dark = matchMedia('(prefers-color-scheme: dark)').matches;
   const cur = document.documentElement.getAttribute('data-theme') || (dark ? 'dark' : 'light');
   const next = cur === 'dark' ? 'light' : 'dark';
-  applyTheme(next); store.set('theme', next);
+  applyTheme(next); themeStore.set(next);
 };
 
 // ---------- router ----------
@@ -329,7 +359,7 @@ const view = document.getElementById('view'), titleEl = document.getElementById(
 let stack = [];
 function go(fn, args, replace){ if (replace) stack.pop(); stack.push([fn, args]); fn(...(args||[])); window.scrollTo(0, 0); }
 function back(){
-  if (stack.length <= 1) { location.href = './index.html'; return; }  // 앱 홈 → 선택 화면(よん/れん)
+  if (stack.length <= 1) { location.href = CONF.back; return; }  // main 홈 → 첫 화면, 기출 홈 → main
   stack.pop();
   const [fn, args] = stack[stack.length-1];
   // Detail에서 퀴즈로 돌아올 때 진행 상태를 유지 (재시작 방지)
@@ -382,24 +412,29 @@ function srsLabel(key){
 
 // ---------- home ----------
 function Home(){
-  setHeader('N2 기출 한자', true);
-  const perfectDays = Object.values(best).filter(v => v && v.score === v.total).length;
+  setHeader(CONF.title, true);
+  const perfect = QSETS.filter(q => { const v = best[q.key]; return v && v.score === v.total; }).length;
   const dueW = dueList('w', WORDS).length, dueG = dueList('g', GRAMMAR).length;
+  const gdays = GDAYS.map(d => d.label);
   view.innerHTML = `
     <div class="stats">
       <div class="card stat"><b>${memorized.size}</b><span>암기 완료 / ${WORDS.length}</span></div>
-      <div class="card stat"><b>${perfectDays}</b><span>만점 Day / ${DAYS.length}</span></div>
+      <div class="card stat"><b>${perfect}</b><span>만점 ${IS_MAIN ? '세트' : 'Day'} / ${QSETS.length}</span></div>
       <div class="card stat"><b>${dueW + dueG}</b><span>오늘 복습</span></div>
     </div>
     <div class="menu">
       <button class="card" id="mReview"><div class="big jp">復</div><div><h2>오늘의 복습</h2><p>간격 반복 · 단어 ${dueW} · 문형 ${dueG}</p></div></button>
-      <button class="card" id="mBook"><div class="big jp">暗</div><div><h2>단어 암기장</h2><p>부수 분해 · 유래 · 예문</p></div></button>
-      <button class="card" id="mQuiz"><div class="big jp">試</div><div><h2>Day별 퀴즈</h2><p>한자 → 읽기(히라가나) + 뜻</p></div></button>
-      <button class="card" id="mGram"><div class="big jp">文</div><div><h2>기출 문형</h2><p>문형 목록 · 빈칸 채우기 퀴즈 (${GRAMMAR.length}개)</p></div></button>
+      <button class="card" id="mBook"><div class="big jp">暗</div><div><h2>단어 암기장</h2><p>${IS_MAIN ? `${BOOK[0].label}~${BOOK[BOOK.length-1].label} · ` : ''}부수 분해 · 유래${IS_MAIN ? ' · 음훈' : ' · 예문'}</p></div></button>
+      <button class="card" id="mQuiz"><div class="big jp">試</div><div><h2>${IS_MAIN ? '일차별 퀴즈' : 'Day별 퀴즈'}</h2><p>한자 → 읽기(히라가나) + 뜻</p></div></button>
+      <button class="card" id="mGram"><div class="big jp">文</div><div><h2>${IS_MAIN ? '필수 문형' : '기출 문형'}</h2><p>${IS_MAIN ? `${gdays[0]}~${gdays[gdays.length-1]} · ` : ''}문형 목록 · 빈칸 채우기 퀴즈 (${GRAMMAR.length}개)</p></div></button>
       <button class="card" id="mWrong"><div class="big jp">誤</div><div><h2>오답 복습</h2><p>틀린 단어만 다시 풀기 (${wrongSet.size}개)</p></div></button>
+      ${IS_MAIN ? `<button class="card" id="mOther"><div class="big jp">過</div><div><h2>최신 기출 어휘·문형</h2><p>2021~2026 기출 · 별도 학습 기록</p></div></button>` : ''}
       <button class="card" id="mVoice"><div class="big jp">音</div><div><h2>음성 설정</h2><p>발음 음성·속도 선택</p></div></button>
     </div>
-    <p class="note">출처: JLPT N2 기출 어휘·문형 2021~2026 (해커스 기출 PDF). 어휘 ${WORDS.length}개 · 문형 ${GRAMMAR.length}개 (PDF 전체 수록).<br>
+    <p class="note">${IS_MAIN
+      ? `출처: 해커스 JLPT N2 한 권으로 합격 「필수 단어·문형 암기장」. 단어 ${WORDS.length}개(1~25일, 일차가 다르면 중복 수록) · 문형 ${GRAMMAR.length}개(26~30일).<br>
+    퀴즈는 하루 분량을 ${PART_MAX}문제 이하 세트(①②…)로 나눠 풉니다. ’연도는 그 단어의 기출 연도입니다.<br>`
+      : `출처: JLPT N2 기출 어휘·문형 2021~2026 (해커스 기출 PDF). 어휘 ${WORDS.length}개 · 문형 ${GRAMMAR.length}개 (PDF 전체 수록).<br>`}
     유래는 『설문해자』 계열 전통 해석을 바탕으로 한 요약이며, 학설이 갈리는 글자는 암기하기 쉬운 풀이를 택했습니다.<br>
     복습 주기: 정답 시 1일 → 3일 → 이후 간격×난이도 계수, 오답 시 당일 재복습.</p>`;
   document.getElementById('mReview').onclick = () => go(Review);
@@ -407,6 +442,7 @@ function Home(){
   document.getElementById('mBook').onclick = () => go(Book, [store.get('bookDay', 1)]);
   document.getElementById('mQuiz').onclick = () => go(QuizMenu);
   document.getElementById('mVoice').onclick = () => go(VoiceSettings);
+  const mo = document.getElementById('mOther'); if (mo) mo.onclick = () => { location.href = CONF.other; };
   document.getElementById('mWrong').onclick = () => {
     const list = WORDS.filter(w => wrongSet.has(w.id));
     if (!list.length) { alert('오답노트가 비어 있습니다.'); return; }
@@ -417,24 +453,24 @@ function Home(){
 // ---------- book ----------
 let bookFilter = 'all';
 function Book(day){
-  day = Math.min(Math.max(1, day|0), DAYS.length);
+  day = Math.min(Math.max(1, day|0), BOOK.length);
   store.set('bookDay', day);
   setHeader('단어 암기장', true);
-  const list = DAYS[day-1].filter(w => bookFilter === 'all' || (bookFilter === 'todo' ? !memorized.has(w.id) : memorized.has(w.id)));
+  const list = BOOK[day-1].words.filter(w => bookFilter === 'all' || (bookFilter === 'todo' ? !memorized.has(w.id) : memorized.has(w.id)));
   view.innerHTML = `
-    <div class="days" id="days">${DAYS.map((d, i) => `<button class="${i+1===day?'on':''}" data-d="${i+1}">Day ${i+1}</button>`).join('')}</div>
+    <div class="days" id="days">${BOOK.map((d, i) => `<button class="${i+1===day?'on':''}" data-d="${i+1}">${esc(d.short)}</button>`).join('')}</div>
     <div class="toolbar">
-      <button class="pill ${bookFilter==='all'?'on':''}" data-f="all">전체 ${DAYS[day-1].length}</button>
+      <button class="pill ${bookFilter==='all'?'on':''}" data-f="all">전체 ${BOOK[day-1].words.length}</button>
       <button class="pill ${bookFilter==='todo'?'on':''}" data-f="todo">미암기</button>
       <button class="pill ${bookFilter==='done'?'on':''}" data-f="done">암기 완료</button>
     </div>
-    <div class="list">${list.map(w => `
+    <div class="list">${list.map((w, i) => `${w.h && (i === 0 || list[i-1].h !== w.h) ? `<h2 class="sub cat">${esc(w.h)}</h2>` : ''}
       <div class="card row ${memorized.has(w.id)?'done':''}" data-id="${w.id}">
         <button class="chk ${memorized.has(w.id)?'on':''}" data-chk="${w.id}" aria-label="암기 체크">${memorized.has(w.id)?'✓':''}</button>
         <div class="w jp">${esc(w.w)}${w.r !== w.w ? `<small>${esc(w.r)}</small>` : ''}</div>
         <div class="m">${esc(w.m)}</div>
       </div>`).join('') || '<p class="note">해당하는 단어가 없습니다.</p>'}</div>
-    <div class="nav2"><button class="btn primary" id="toQuiz">Day ${day} 퀴즈 풀기</button></div>`;
+    <div class="nav2 qparts">${qsetsOf(day).map(q => `<button class="btn primary" data-q="${esc(q.key)}">${esc(q.label)} 퀴즈${IS_MAIN ? ` <small>${q.words.length}</small>` : ' 풀기'}</button>`).join('')}</div>`;
   const on = view.querySelector('.days .on'); if (on) on.scrollIntoView({inline:'center', block:'nearest'});
   view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => go(Book, [+b.dataset.d], true));
   view.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { bookFilter = b.dataset.f; Book(day); });
@@ -444,7 +480,7 @@ function Book(day){
     if (chk) { memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo(); Book(day); return; }
     go(Detail, [id, list.map(w => w.id)]);
   });
-  document.getElementById('toQuiz').onclick = () => go(Quiz, [DAYS[day-1], `Day ${day} 퀴즈`, day]);
+  view.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { const q = QSETS.find(x => String(x.key) === b.dataset.q); if (q) go(Quiz, [q.words, `${q.label} 퀴즈`, q.key]); });
 }
 
 function highlight(sentence, word){
@@ -483,7 +519,7 @@ function readingBlock(c, w){
 
 function Detail(id, ids){
   const w = WORDS[id]; if (!w) { back(); return; }
-  setHeader(`Day ${w.day}`, true);
+  setHeader(BOOK[w.day-1] ? BOOK[w.day-1].label : '', true);
   const pos = ids ? ids.indexOf(id) : -1;
   const ex = EX[w.w];
   const ks = uniqKanji(w.w);
@@ -493,7 +529,8 @@ function Detail(id, ids){
         <div class="word jp">${esc(w.w)}</div>
         ${w.r !== w.w ? `<div class="reading">${esc(w.r)}</div>` : ''}
         <div class="mean">${esc(w.m)}</div>
-        <div class="yrs">기출: ${w.years.join(', ')}년 · ${esc(srsLabel('w' + id))}</div>
+        <div class="yrs">${w.pos ? `${esc(POS[w.pos] || w.pos)} · ` : ''}${w.years.length ? `기출 ${w.years.join(', ')}년 · ` : ''}${esc(srsLabel('w' + id))}</div>
+        ${w.h ? `<div class="yrs">${esc(w.h)}</div>` : ''}
         <button class="tts" id="tts">🔊 발음 듣기</button>
       </div>
       <div class="card sec"><h3>한자 분해 · 유래</h3>
@@ -530,21 +567,28 @@ function Detail(id, ids){
 // ---------- quiz ----------
 let quizMode = store.get('quizMode', 'choice'); // 'choice' | 'type'
 function QuizMenu(){
-  setHeader('Day별 퀴즈', true);
+  setHeader(IS_MAIN ? '일차별 퀴즈' : 'Day별 퀴즈', true);
+  const qd = Math.min(Math.max(1, store.get('quizDay', store.get('bookDay', 1))|0), BOOK.length);
+  const sets = IS_MAIN ? qsetsOf(qd) : QSETS;
   view.innerHTML = `
     <div class="seg" id="seg">
       <button data-m="choice" class="${quizMode==='choice'?'on':''}">읽기 객관식</button>
       <button data-m="type" class="${quizMode==='type'?'on':''}">읽기 직접 입력</button>
     </div>
     <p class="note" style="margin-top:0">직접 입력은 히라가나·가타카나·로마자(예: kyougi) 모두 인정. な형용사의 'だ', 'する'는 생략 가능.</p>
-    <div class="dgrid">${DAYS.map((d, i) => { const b = best[i+1]; const pf = b && b.score === b.total;
-      return `<button class="card ${pf?'perfect':''}" data-d="${i+1}"><b>Day ${i+1}</b><span>${b ? `최고 ${b.score}/${b.total}` : `${d.length}문제`}</span></button>`; }).join('')}
+    ${IS_MAIN ? `<div class="days">${BOOK.map((d, i) => `<button class="${i+1===qd?'on':''}" data-qd="${i+1}">${esc(d.short)}</button>`).join('')}</div>` : ''}
+    <div class="dgrid">${sets.map(q => { const b = best[q.key]; const pf = b && b.score === b.total;
+      return `<button class="card ${pf?'perfect':''}" data-d="${esc(q.key)}"><b>${esc(q.label)}</b><span>${b ? `최고 ${b.score}/${b.total}` : `${q.words.length}문제`}</span></button>`; }).join('')}
+      ${IS_MAIN ? `<button class="card" data-d="day"><b>${esc(BOOK[qd-1].label)} 전체</b><span>${BOOK[qd-1].words.length}문제</span></button>` : ''}
       <button class="card" data-d="all"><b>전체 랜덤</b><span>20문제</span></button>
     </div>`;
+  const on = view.querySelector('.days .on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
+  view.querySelectorAll('[data-qd]').forEach(b => b.onclick = () => { store.set('quizDay', +b.dataset.qd); QuizMenu(); });
   view.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { quizMode = b.dataset.m; store.set('quizMode', quizMode); QuizMenu(); });
   view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
     if (b.dataset.d === 'all') go(Quiz, [shuffle(WORDS).slice(0, 20), '전체 랜덤', null]);
-    else { const d = +b.dataset.d; go(Quiz, [DAYS[d-1], `Day ${d} 퀴즈`, d]); }
+    else if (b.dataset.d === 'day') go(Quiz, [BOOK[qd-1].words, `${BOOK[qd-1].label} 전체`, null]);
+    else { const q = QSETS.find(x => String(x.key) === b.dataset.d); if (q) go(Quiz, [q.words, `${q.label} 퀴즈`, q.key]); }
   });
 }
 
@@ -673,16 +717,16 @@ let gOpen = null;
 function GBook(day){
   day = Math.min(Math.max(1, day|0), GDAYS.length);
   store.set('gbookDay', day);
-  setHeader('기출 문형', true);
+  setHeader(IS_MAIN ? '필수 문형' : '기출 문형', true);
   const gb = store.get('gbest', {});
   view.innerHTML = `
-    <div class="days">${GDAYS.map((d, i) => `<button class="${i+1===day?'on':''}" data-d="${i+1}">Day ${i+1}${gb[i+1] ? ` · ${gb[i+1].score}/${gb[i+1].total}` : ''}</button>`).join('')}</div>
-    <div class="nav2" style="margin:0 0 10px"><button class="btn primary" id="gq">Day ${day} 문형 퀴즈</button><button class="btn" id="gall">전체 랜덤 20</button></div>
-    <div class="list">${GDAYS[day-1].map(g => `
+    <div class="days">${GDAYS.map((d, i) => `<button class="${i+1===day?'on':''}" data-d="${i+1}">${esc(d.label)}${gb[i+1] ? ` · ${gb[i+1].score}/${gb[i+1].total}` : ''}</button>`).join('')}</div>
+    <div class="nav2" style="margin:0 0 10px"><button class="btn primary" id="gq">${esc(GDAYS[day-1].label)} 문형 퀴즈</button><button class="btn" id="gall">전체 랜덤 20</button></div>
+    <div class="list">${GDAYS[day-1].map((g, i, arr) => `${IS_MAIN && g.g && (i === 0 || arr[i-1].g !== g.g) ? `<h2 class="sub cat">${esc(g.g)}</h2>` : ''}
       <button class="card grow" data-id="${g.id}">
         <div class="gp"><span class="jp">${esc(g.p)}</span><span class="gm">${esc(g.m)}</span></div>
-        ${gOpen === g.id ? `<div class="gx"><div class="jp s">${gMarked(g.s)}</div><div class="k">${esc(g.k)}</div>
-          <div class="meta">기출 ${esc(g.years.join(', '))} · ${esc(srsLabel('g' + g.id))}</div></div>` : ''}
+        ${gOpen === g.id ? g.ex.map(e => `<div class="gx"><div class="jp s">${gMarked(e.s)}</div><div class="k">${esc(e.k)}</div></div>`).join('') + `
+          <div class="gx meta">${g.years.length ? `기출 ${esc(g.years.join(', '))} · ` : ''}${esc(srsLabel('g' + g.id))}</div>` : ''}
       </button>`).join('')}</div>`;
   const on = view.querySelector('.days .on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
   view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { gOpen = null; go(GBook, [+b.dataset.d], true); });
@@ -692,20 +736,22 @@ function GBook(day){
     GBook(day);
     if (gOpen !== null) speak(gFull(GRAMMAR[id].s));
   });
-  document.getElementById('gq').onclick = () => go(GQuiz, [GDAYS[day-1], `문형 Day ${day}`, day]);
+  document.getElementById('gq').onclick = () => go(GQuiz, [GDAYS[day-1], `문형 ${GDAYS[day-1].label}`, day]);
   document.getElementById('gall').onclick = () => go(GQuiz, [shuffle(GRAMMAR).slice(0, 20), '문형 랜덤', null]);
 }
 
 // 오답 보기: 같은 유사 그룹·같은 정답 문자열 제외, 정답과 길이가 비슷한 것 우선
-function grammarChoices(g){
-  const cands = shuffle(GRAMMAR.filter(x => x.id !== g.id && x.a !== g.a && !(g.g && x.g === g.g)));
-  cands.sort((x, y) => Math.abs(x.a.length - g.a.length) - Math.abs(y.a.length - g.a.length));
+// 기출 세트는 '유사 그룹'이 같은 문형도 제외, 공통으로 뜻이 겹치는 문형(동의 표현) 제외
+function grammarChoices(g, ans){
+  ans = ans || g.a;
+  const cands = shuffle(GRAMMAR.filter(x => x.id !== g.id && x.a !== ans && !(!IS_MAIN && g.g && x.g === g.g) && !mOverlap(x.m, g.m)));
+  cands.sort((x, y) => Math.abs(x.a.length - ans.length) - Math.abs(y.a.length - ans.length));
   const picked = [];
   for (const c of cands.slice(0, 12).sort(() => Math.random() - 0.5)) {
     if (picked.length >= 3) break;
-    if (!picked.includes(c.a)) picked.push(c.a);
+    if (!picked.includes(c.a) && c.a !== ans) picked.push(c.a);
   }
-  return shuffle([g.a, ...picked]);
+  return shuffle([ans, ...picked]);
 }
 
 function GQuiz(list, title, gday){
@@ -713,9 +759,10 @@ function GQuiz(list, title, gday){
   let idx = 0, score = 0, locked = false; const wrong = [];
   setHeader(title, true);
   function draw(){
-    const g = qs[idx], opts = grammarChoices(g);
+    const g = qs[idx], e = g.ex[Math.floor(Math.random() * g.ex.length)] || g.ex[0];
+    const ans = /\[([^\]]+)\]/.exec(e.s)[1], opts = grammarChoices(g, ans);
     locked = false;
-    const blank = g.s.replace(/\[[^\]]+\]/, '<span class="blank">　？　</span>');
+    const blank = e.s.replace(/\[[^\]]+\]/, '<span class="blank">　？　</span>');
     view.innerHTML = `
       <div class="qtop"><span>${idx+1} / ${qs.length}</span><div class="bar"><i style="width:${idx/qs.length*100}%"></i></div><span>정답 ${score}</span></div>
       <div class="card qcard"><div class="step">빈칸에 들어갈 알맞은 것은?</div>
@@ -724,17 +771,17 @@ function GQuiz(list, title, gday){
       <div id="fb"></div>`;
     view.querySelectorAll('.choice').forEach(b => b.onclick = () => {
       if (locked) return; locked = true;
-      const ok = opts[+b.dataset.i] === g.a;
-      view.querySelectorAll('.choice').forEach(x => { if (x.textContent === g.a) x.classList.add('ok'); });
+      const ok = opts[+b.dataset.i] === ans;
+      view.querySelectorAll('.choice').forEach(x => { if (x.textContent === ans) x.classList.add('ok'); });
       if (!ok) b.classList.add('ng');
-      if (ok) score++; else wrong.push(g);
+      if (ok) score++; else wrong.push({...g, s: e.s, k: e.k});
       srsGrade('g' + g.id, ok);
       document.getElementById('fb').innerHTML = `
         <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 정답' : '❌ 오답'} — <b class="jp">${esc(g.p)}</b> : ${esc(g.m)}
-          <div class="jp" style="margin-top:6px">${gMarked(g.s)}</div><div style="color:var(--sub);font-size:13px">${esc(g.k)}</div></div>
+          <div class="jp" style="margin-top:6px">${gMarked(e.s)}</div><div style="color:var(--sub);font-size:13px">${esc(e.k)}</div></div>
         <div class="nav2"><button class="btn primary" id="nx">${idx < qs.length-1 ? '다음 ›' : '결과 보기'}</button></div>`;
       document.getElementById('nx').onclick = next;
-      speak(gFull(g.s));
+      speak(gFull(e.s));
     });
   }
   function next(){
@@ -749,7 +796,7 @@ function GQuiz(list, title, gday){
         <div class="card grow"><div class="gp"><span class="jp">${esc(g.p)}</span><span class="gm">${esc(g.m)}</span></div>
           <div class="gx"><div class="jp s">${gMarked(g.s)}</div><div class="k">${esc(g.k)}</div></div></div>`).join('')}</div>` : ''}
       <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">처음부터</button></div>`;
-    const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(GQuiz, [wrong.slice(), title + ' (재도전)', null], true);
+    const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(GQuiz, [wrong.map(w => GRAMMAR[w.id]), title + ' (재도전)', null], true);
     document.getElementById('again').onclick = () => go(GQuiz, [list, title, gday], true);
   }
   draw();
