@@ -804,8 +804,10 @@ function GQuiz(list, title, gday){
 
 function VoiceSettings(){ setHeader('음성 설정', true); TTS.screen(view, esc); }
 
-// ---------- keyboard: ←/→ 이전·다음, Enter 외웠어요(상세)·다음 문제(퀴즈), 1~4 보기 선택 ----------
+// ---------- keyboard: ←/→ 이전·다음, Enter 외웠어요(상세)·다음 문제(퀴즈), 1~4 보기 선택, 오른쪽 Ctrl 발음 ----------
 document.addEventListener('keydown', e => {
+  // 오른쪽 Ctrl: 발음 듣기 (ctrlKey 검사보다 먼저 처리, 길게 누를 때 반복 재생 방지)
+  if (e.code === 'ControlRight') { if (!e.repeat) { const t = document.getElementById('tts'); if (t) { e.preventDefault(); t.click(); } } return; }
   if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;   // 직접 입력 중에는 방해하지 않음
