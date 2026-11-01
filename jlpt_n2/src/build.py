@@ -1,136 +1,141 @@
-"""src/ 데이터(words.json, kanji.txt, examples.txt)를 template.html에 주입해 index.html 생성."""
+"""よん 앱 빌드: 공용 한자 데이터 + 두 단어 세트를 template.html에 주입.
+
+- main   (yon.html)        : 해커스 「N2 필수 단어·문형 암기장」 1~25일 단어, 26~30일 문형
+- gichul (yon-gichul.html) : 최신 기출 어휘·문형 2021~2026 (기존 학습 기록 'n2:' 키 그대로 사용)
+"""
 import json, re, pathlib, sys
+from jalign import align, k2h
 
 SRC = pathlib.Path(__file__).parent
-OUT = SRC.parent / 'yon.html'
+ROOT = SRC.parent
+KRE = re.compile(r'[一-鿿]')
 
-words = json.loads((SRC / 'words.json').read_text(encoding='utf-8'))
-kanji = (SRC / 'kanji.txt').read_text(encoding='utf-8')
-examples = (SRC / 'examples.txt').read_text(encoding='utf-8')
 
-# 무결성 검사: 모든 한자/예문이 존재하는지, 구분자 개수가 맞는지
+def lines(path):
+    for ln in (SRC / path).read_text(encoding='utf-8').splitlines():
+        if ln.strip() and not ln.startswith('#'):
+            yield ln
+
+
+# ---------- 공용 데이터: 한자 해설, 음독/훈독, 예문 ----------
+kanji_raw = (SRC / 'kanji.txt').read_text(encoding='utf-8')
 kmap = {}
-for ln in kanji.splitlines():
-    if not ln.strip() or ln.startswith('#'):
-        continue
-    parts = ln.split('|')
-    if len(parts) != 5:
+for ln in lines('kanji.txt'):
+    p = ln.split('|')
+    if len(p) != 5:
         sys.exit(f'kanji.txt 형식 오류: {ln}')
-    kmap[parts[0]] = parts
-emap = {}
-for ln in examples.splitlines():
-    if not ln.strip() or ln.startswith('#'):
-        continue
-    parts = ln.split('|')
-    if len(parts) != 3:
-        sys.exit(f'examples.txt 형식 오류: {ln}')
-    emap[parts[0]] = parts
-missing_k = sorted({c for w in words for c in w['w'] if re.match(r'[一-鿿]', c) and c not in kmap})
-missing_e = [w['w'] for w in words if w['w'] not in emap]
-if missing_k or missing_e:
-    sys.exit(f'누락 한자: {missing_k} / 누락 예문: {missing_e}')
+    if p[0] in kmap:
+        sys.exit(f'kanji.txt 중복: {p[0]}')
+    kmap[p[0]] = p
 
-# ---------- 한자별 음독/훈독 + 단어 속 읽기 정렬 ----------
-k2h = lambda s: ''.join(chr(ord(c) - 0x60) if 'ァ' <= c <= 'ヶ' else c for c in s)
-DAKU = dict(zip('かきくけこさしすせそたちつてとはひふへほ', 'がぎぐげござじずぜぞだぢづでどばびぶべぼ'))
-HANDAKU = dict(zip('はひふへほ', 'ぱぴぷぺぽ'))
-def variants(stem):
-    """연탁(か→が), 반탁음(は→ぱ), 촉음화(つ→っ) 변형 포함"""
-    out = {stem}
-    if stem and stem[0] in DAKU: out.add(DAKU[stem[0]] + stem[1:])
-    if stem and stem[0] in HANDAKU: out.add(HANDAKU[stem[0]] + stem[1:])
-    for v in list(out):
-        if len(v) > 1 and v[-1] in 'つちくき': out.add(v[:-1] + 'っ')
-    return out
-
-readings_raw = (SRC / 'readings.txt').read_text(encoding='utf-8')
+read_raw = (SRC / 'readings.txt').read_text(encoding='utf-8')
 RD = {}
-for ln in readings_raw.splitlines():
-    if not ln.strip() or ln.startswith('#'):
-        continue
-    parts = ln.split('|')
-    if len(parts) != 3:
+for ln in lines('readings.txt'):
+    p = ln.split('|')
+    if len(p) != 3:
         sys.exit(f'readings.txt 형식 오류: {ln}')
-    c, on, kun = parts
+    c, on, kun = p
     items = []
     for kind, field in (('on', on), ('kun', kun)):
         for it in filter(None, field.split(',')):
-            p = it.split(':')
-            if len(p) != 3:
+            q = it.split(':')
+            if len(q) != 3 or not q[0]:
                 sys.exit(f'readings.txt 항목 오류: {c} {it}')
-            items.append((kind, p[0], k2h(p[0]).split('.')[0]))
+            items.append((kind, q[0], k2h(q[0]).split('.')[0]))
     RD[c] = items
-missing_r = sorted({c for w in words for c in w['w'] if re.match(r'[一-鿿]', c) and c not in RD})
-if missing_r:
-    sys.exit(f'readings.txt 누락 한자: {missing_r}')
 
-# 숙자훈 등 규칙으로 정렬되지 않는 단어: 한자별 읽기 수동 지정 (읽기 키가 없으면 '특수 읽기'로 표시)
-OVERRIDES = {
-    '日本風': [('日', 'に', ''), ('本', 'ほん', 'ホン'), ('風', 'ふう', 'フウ')],
-    '最寄り': [('最', 'も', 'もっと.も'), ('寄', 'よ', 'よ.る')],
-    '指図': [('指', 'さし', 'さ.す'), ('図', 'ず', 'ズ')],
-    '９時発': [('時', 'じ', 'ジ'), ('発', 'はつ', 'ハツ')],   # 숫자(く)는 한자가 아님
-    # 一人(ひとり)·二人(ふたり)는 숙자훈 → 人의 'り'는 특수 읽기
-    '一人一人': [('一', 'ひと', 'ひと'), ('人', 'り', '')],
-    '二人連れ': [('二', 'ふた', 'ふた'), ('人', 'り', ''), ('連', 'づ', 'つ.れる')],
-}
-def align(w, r):
-    r = k2h(r); sols = []
-    def rec(i, j, acc):
-        if sols: return
-        if i == len(w):
-            if j == len(r): sols.append(list(acc))
-            return
-        c = w[i]
-        if c == '々':
-            prev = acc[-1]
-            for v in variants(prev[1]):
-                if r.startswith(v, j):
-                    acc.append(('々', v, prev[2])); rec(i + 1, j + len(v), acc); acc.pop()
-            return
-        if not re.match(r'[一-鿿]', c):
-            if r.startswith(k2h(c), j): rec(i + 1, j + 1, acc)
-            return
-        for kind, key, stem in sorted(RD[c], key=lambda x: -len(x[2])):
-            for v in sorted(variants(stem), key=len, reverse=True):
-                if r.startswith(v, j):
-                    acc.append((c, v, key)); rec(i + 1, j + len(v), acc); acc.pop()
-    rec(0, 0, [])
-    return sols[0] if sols else None
-fails = []
-for w in words:
-    seg = OVERRIDES.get(w['w']) or align(w['w'], w['r'])
-    if seg is None:   # 가나만으로 된 단어는 빈 리스트([])가 정상
-        fails.append(f"{w['w']}({w['r']})")
-        continue
-    w['seg'] = [list(s) for s in seg if s[0] != '々']
-if fails:
-    sys.exit('읽기 정렬 실패 (readings.txt에 읽기 추가 또는 OVERRIDES 지정 필요): ' + ', '.join(fails))
+ex_raw = (SRC / 'examples.txt').read_text(encoding='utf-8')
+emap = {}
+for ln in lines('examples.txt'):
+    p = ln.split('|')
+    if len(p) != 3:
+        sys.exit(f'examples.txt 형식 오류: {ln}')
+    emap[p[0]] = p
 
-grammar = (SRC / 'grammar.txt').read_text(encoding='utf-8')
-gcount = 0
-seen_p = set()
-for ln in grammar.splitlines():
-    if not ln.strip() or ln.startswith('#'):
-        continue
-    parts = ln.split('|')
-    if len(parts) != 6 or not re.search(r'\[[^\]]+\]', parts[2]):
-        sys.exit(f'grammar.txt 형식 오류: {ln}')
-    if parts[0] in seen_p:
-        sys.exit(f'grammar.txt 중복 문형: {parts[0]}')
-    seen_p.add(parts[0])
-    gcount += 1
+# 숙자훈·오쿠리가나 생략 등 규칙으로 정렬되지 않는 단어: 한자별 읽기 수동 지정 (키가 ''이면 '특수 읽기')
+OVERRIDES = json.loads((SRC / 'overrides.json').read_text(encoding='utf-8'))
 
-def js_str(s):
-    # </script> 조기 종료 방지
-    return json.dumps(s, ensure_ascii=False).replace('</', '<\\/')
 
-data = (f'const WORDS_JSON = {js_str(words)};\n'
-        f'const RAW_KANJI = {js_str(kanji)};\n'
-        f'const RAW_EX = {js_str(examples)};\n'
-        f'const RAW_GRAMMAR = {js_str(grammar)};\n'
-        f'const RAW_READ = {js_str(readings_raw)};')
-html = (SRC / 'template.html').read_text(encoding='utf-8').replace('/*__DATA__*/', data, 1)
-html = html.replace('/*__VOICE__*/', (SRC.parent / 'shared' / 'voice.js').read_text(encoding='utf-8'), 1)
-OUT.write_text(html, encoding='utf-8')
-print(f'OK: {OUT} ({len(html)//1024} KB, 단어 {len(words)}, 한자 {len(kmap)}, 문형 {gcount})')
+def prepare_words(words, need_example):
+    missing_k = sorted({c for w in words for c in w['w'] if KRE.match(c) and (c not in kmap or c not in RD)})
+    missing_e = [w['w'] for w in words if need_example and w['w'] not in emap]
+    if missing_k or missing_e:
+        sys.exit(f'누락 한자(kanji/readings): {missing_k} / 누락 예문: {missing_e}')
+    fails = []
+    for w in words:
+        seg = OVERRIDES.get(w['w']) or align(w['w'], w['r'], RD)
+        if seg is None:          # 가나만으로 된 단어는 빈 리스트([])가 정상
+            fails.append(f"{w['w']}({w['r']})"); continue
+        for c, _, key in seg:   # 지정한 키는 readings.txt에 있어야 강조가 됨
+            if c != '々' and key and key not in {it[1] for it in RD.get(c, [])}:
+                fails.append(f"{w['w']}: {c}의 읽기 '{key}'가 readings.txt에 없음")
+        w['seg'] = [list(s) for s in seg if s[0] != '々']
+    if fails:
+        sys.exit('읽기 정렬 실패 (readings.txt에 읽기 추가 또는 overrides.json 지정 필요): ' + ', '.join(fails))
+    return words
+
+
+def grammar_from_txt():
+    """기출 문형: 문형|뜻|예문([정답])|해석|연도|그룹 → 공용 JSON 형식"""
+    out, seen = [], set()
+    for ln in lines('grammar.txt'):
+        p = ln.split('|')
+        if len(p) != 6 or not re.search(r'\[[^\]]+\]', p[2]):
+            sys.exit(f'grammar.txt 형식 오류: {ln}')
+        if p[0] in seen:
+            sys.exit(f'grammar.txt 중복 문형: {p[0]}')
+        seen.add(p[0])
+        out.append({'p': p[0], 'm': p[1], 'ex': [{'s': p[2], 'k': p[3]}],
+                    'years': [y for y in p[4].split(',') if y], 'g': p[5].strip()})
+    return out
+
+
+def check_grammar(gram):
+    seen = set()
+    for g in gram:
+        if not g['p'] or not g['ex']:
+            sys.exit(f'문형 데이터 오류: {g}')
+        if g['p'] in seen:
+            sys.exit(f'중복 문형: {g["p"]}')
+        seen.add(g['p'])
+        for e in g['ex']:
+            if len(re.findall(r'\[[^\]]+\]', e['s'])) != 1:
+                sys.exit(f'빈칸은 예문마다 정확히 1개: {g["p"]} / {e["s"]}')
+    return gram
+
+
+def js(o):
+    return json.dumps(o, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
+
+
+def build(out, words, gram, conf):
+    used = {c for w in words for c in w['w'] if KRE.match(c)}
+    kanji_sub = '\n'.join('|'.join(kmap[c]) for c in kmap if c in used)
+    read_sub = '\n'.join(ln for ln in lines('readings.txt') if ln.split('|')[0] in used)
+    ex_sub = '\n'.join('|'.join(emap[w['w']]) for w in words if w['w'] in emap)
+    data = (f'const CONF = {js(conf)};\n'
+            f'const WORDS_JSON = {js(words)};\n'
+            f'const RAW_KANJI = {js(kanji_sub)};\n'
+            f'const RAW_EX = {js(ex_sub)};\n'
+            f'const GRAM_JSON = {js(gram)};\n'
+            f'const RAW_READ = {js(read_sub)};')
+    html = (SRC / 'template.html').read_text(encoding='utf-8').replace('/*__DATA__*/', data, 1)
+    html = html.replace('/*__VOICE__*/', (ROOT / 'shared' / 'voice.js').read_text(encoding='utf-8'), 1)
+    (ROOT / out).write_text(html, encoding='utf-8')
+    print(f'OK: {out} ({len(html)//1024} KB, 단어 {len(words)}, 한자 {len(used)}, 문형 {len(gram)})')
+
+
+# ---------- main: 필수 단어·문형 ----------
+main_words = json.loads((SRC / 'main' / 'words.json').read_text(encoding='utf-8'))
+for w in main_words:
+    if not w['w'] or not w['r'] or not w['m'] or not (1 <= w['day'] <= 25):
+        sys.exit(f'main/words.json 항목 오류: {w}')
+    w['years'] = w.pop('yrs')
+main_gram = check_grammar(json.loads((SRC / 'main' / 'grammar.json').read_text(encoding='utf-8')))
+build('yon.html', prepare_words(main_words, False), main_gram, {
+    'set': 'main', 'prefix': 'n2m:', 'title': 'N2 필수 단어', 'back': './index.html', 'other': './yon-gichul.html'})
+
+# ---------- gichul: 최신 기출 ----------
+gichul_words = json.loads((SRC / 'words.json').read_text(encoding='utf-8'))
+build('yon-gichul.html', prepare_words(gichul_words, True), check_grammar(grammar_from_txt()), {
+    'set': 'gichul', 'prefix': 'n2:', 'title': 'N2 최신 기출', 'back': './yon.html', 'other': './yon.html'})
