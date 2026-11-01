@@ -31,6 +31,10 @@ a.pick:active{transform:scale(.98)}
 .name{font-size:30px;font-weight:800;line-height:1.1}
 .desc{font-size:14px;color:var(--sub);margin-top:4px}
 .pick.off{opacity:.5;pointer-events:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+.btn{flex:1;padding:12px;border-radius:12px;background:var(--line);font:inherit;font-weight:600;color:inherit;border:0}
+.btn.primary{background:var(--accent);color:#fff}
+.bkopen{background:none;border:0;color:var(--sub);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;justify-self:center}
 </style>
 </head>
 <body>
@@ -44,7 +48,11 @@ a.pick:active{transform:scale(.98)}
     <div class="badge">한</div>
     <div><div class="name">れん</div><div class="desc" id="renDesc">TOPIK 韓国語 単語 · 文法</div></div>
   </a>
+  <div id="bkBanner"></div>
+  <button class="bkopen" id="bkOpen" type="button"></button>
+  <section id="bkView" hidden></section>
 </main>
+<script src="shared/backup.js"></script>
 <script>
 try { const t = localStorage.getItem('n2:theme'); if (t) document.documentElement.setAttribute('data-theme', JSON.parse(t)); } catch (e) {}
 // ren.html이 아직 배포되지 않았으면 비활성 표시 (오프라인이면 캐시 응답으로 판단)
@@ -52,6 +60,17 @@ fetch('ren.html').then(r => { if (!r.ok) throw 0; }).catch(() => {
   document.getElementById('ren').classList.add('off');
   document.getElementById('renDesc').textContent = '準備中 · 준비 중';
 });
+// 학습 기록 백업 (よん·れん 공통) — 기기 언어가 일본어면 일본어, 아니면 한국어
+try {
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const lang = /^ja/i.test(navigator.language || '') ? 'ja' : 'ko';
+  const BK = makeBackup({esc, T: BACKUP_T[lang]});
+  const open = document.getElementById('bkOpen'), sec = document.getElementById('bkView');
+  open.textContent = lang === 'ja' ? '学習記録のバックアップ · 학습 기록 백업' : '학습 기록 백업 · 学習記録のバックアップ';
+  const show = () => { sec.hidden = false; open.hidden = true; BK.screen(sec); sec.scrollIntoView({behavior: 'smooth'}); };
+  open.onclick = show;
+  BK.banner(document.getElementById('bkBanner'), show);
+} catch (e) {}
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>

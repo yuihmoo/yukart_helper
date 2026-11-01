@@ -62,5 +62,6 @@ if missing_ex:
 data = f'const VOCAB = {js(vocab)};\nconst HANJA = {js(hanja)};\nconst GRAM = {js(out_g)};\nconst EXAMPLES = {js(examples)};'
 html = (SRC / 'template.html').read_text(encoding='utf-8').replace('/*__DATA__*/', data, 1)
 html = html.replace('/*__VOICE__*/', (SRC.parent / 'shared' / 'voice.js').read_text(encoding='utf-8'), 1)
+html = html.replace('/*__BACKUP__*/', (SRC.parent / 'shared' / 'backup.js').read_text(encoding='utf-8'), 1)
 OUT.write_text(html, encoding='utf-8')
 print(f'OK: {OUT} ({len(html)//1024} KB, 단어 {len(vocab)}, 한자어 {len(hanja)}, 문법 {len(out_g)})')
