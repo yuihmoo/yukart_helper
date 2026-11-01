@@ -8,6 +8,18 @@ vocab = json.loads((SRC / 'vocab.json').read_text(encoding='utf-8'))
 hanja = json.loads((SRC / 'hanja.json').read_text(encoding='utf-8'))
 gram = json.loads((SRC / 'grammar.json').read_text(encoding='utf-8'))
 
+# ---- 예문: 번호|한국어 예문|日本語訳 (모든 단어에 1개씩) ----
+examples = {}
+for ln in (SRC / 'examples.txt').read_text(encoding='utf-8').splitlines():
+    if not ln.strip() or ln.startswith('#'):
+        continue
+    p = ln.split('|')
+    if len(p) != 3 or not p[0].isdigit() or not p[1].strip() or not p[2].strip():
+        sys.exit(f'examples.txt 형식 오류: {ln}')
+    if int(p[0]) in examples:
+        sys.exit(f'examples.txt 중복 번호: {p[0]}')
+    examples[int(p[0])] = [p[1], p[2]]
+
 # ---- 어휘 검사: 번호 연속, 빈 값 없음 ----
 nums = [v['n'] for v in vocab]
 if nums != list(range(1, len(vocab) + 1)):
@@ -44,7 +56,10 @@ for g in gram:
     out_g.append({**g, 's': s, 'a': re.search(r'\[([^\]]+)\]', s).group(1), 'g': grp})
 
 js = lambda o: json.dumps(o, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
-data = f'const VOCAB = {js(vocab)};\nconst HANJA = {js(hanja)};\nconst GRAM = {js(out_g)};'
+missing_ex = [v['n'] for v in vocab if v['n'] not in examples]
+if missing_ex:
+    sys.exit(f'예문 누락: {missing_ex[:20]} … ({len(missing_ex)}개)')
+data = f'const VOCAB = {js(vocab)};\nconst HANJA = {js(hanja)};\nconst GRAM = {js(out_g)};\nconst EXAMPLES = {js(examples)};'
 html = (SRC / 'template.html').read_text(encoding='utf-8').replace('/*__DATA__*/', data, 1)
 html = html.replace('/*__VOICE__*/', (SRC.parent / 'shared' / 'voice.js').read_text(encoding='utf-8'), 1)
 OUT.write_text(html, encoding='utf-8')
