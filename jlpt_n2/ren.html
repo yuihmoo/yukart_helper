@@ -633,7 +633,7 @@ function GQuiz(list, title, gday){
 
 function VoiceSettings(){ setHeader('音声設定'); TTS.screen(view, esc); }
 
-// ---------- keyboard: ←/→ 이전·다음, Enter 퀴즈 다음 문제, 1~4 보기 선택 ----------
+// ---------- keyboard: ←/→ 이전·다음, Enter 외웠어요(상세)·다음 문제(퀴즈), 1~4 보기 선택 ----------
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
   const t = e.target;
@@ -642,7 +642,11 @@ document.addEventListener('keydown', e => {
   let b = null;
   if (e.key === 'ArrowRight') b = btn('nx') || btn('next');
   else if (e.key === 'ArrowLeft') b = btn('prev');
-  else if (e.key === 'Enter') b = btn('nx');
+  else if (e.key === 'Enter') {
+    // 단어 상세: '외웠어요' 처리(다음 단어로 이동). 이미 외운 단어면 취소하지 않고 다음으로만 이동
+    const m = btn('memo');
+    b = btn('nx') || (m ? (m.classList.contains('primary') ? m : btn('next')) : null);
+  }
   else if (/^[1-4]$/.test(e.key)) b = view.querySelectorAll('.choice')[+e.key - 1] || null;
   if (b) { e.preventDefault(); b.click(); }   // preventDefault: 포커스된 버튼의 Enter 기본 클릭과 중복 방지
 });
