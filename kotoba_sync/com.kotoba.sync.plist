@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.kotoba.sync</string>
+  <!-- 아래 두 경로를 내 PC에 맞게 수정 (python3 위치: `which python3`) -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/YOUR_NAME/yukart_helper/kotoba_sync/sync_server.py</string>
+    <string>serve</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardErrorPath</key><string>/tmp/kotoba-sync.log</string>
+</dict>
+</plist>
