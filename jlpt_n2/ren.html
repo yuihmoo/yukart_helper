@@ -279,7 +279,10 @@ const BACKUP_T = {
   undo:'↺ 불러오기 전으로 되돌리기', auto:'자동 백업', autoOn:'켜짐 — 기록이 바뀔 때마다 지정한 파일에 자동 저장', lastAuto:'마지막 자동 저장', changeFile:'저장 파일 바꾸기', stopAuto:'자동 백업 끄기',
   autoPausedMsg:'브라우저를 다시 열면 보안상 한 번 허용이 필요합니다. 아래 버튼을 누르면 이어서 자동 저장합니다.',
   autoNote:'컴퓨터의 크롬·엣지에서는 백업 파일을 한 번 지정해 두면, 공부할 때마다 그 파일이 자동으로 갱신됩니다. (구글 드라이브·OneDrive 동기화 폴더에 두면 클라우드에도 자동 보관)', chooseFile:'자동 백업 파일 지정',
-  autoUnsupported:'이 브라우저(아이폰·사파리 등)는 보안상 파일을 자동으로 저장할 수 없습니다. 대신 마지막 백업 후 {n}일이 지나면 홈 화면에 알림을 띄웁니다.', confirmStop:'자동 백업을 끌까요? (이미 저장된 파일은 그대로 남습니다)'},
+  autoUnsupported:'이 브라우저(아이폰·사파리 등)는 보안상 파일을 자동으로 저장할 수 없습니다. 대신 마지막 백업 후 {n}일이 지나면 홈 화면에 알림을 띄웁니다.', confirmStop:'자동 백업을 끌까요? (이미 저장된 파일은 그대로 남습니다)', syncTitle:'집 PC 동기화', syncNote:'집 PC에서 동기화 서버(kotoba_sync)를 실행해 두면, 공부한 기록이 PC의 SQLite 파일에 자동 저장되고 아이폰·PC 어디서 열어도 같은 기록이 이어집니다. 서버 주소와 사용자 토큰을 입력하세요.',
+  syncUrl:'서버 주소 (예: https://내PC이름.xxxx.ts.net)', syncToken:'사용자 토큰', syncSave:'연결 확인 후 저장', syncNow:'지금 동기화', syncOff:'연결 해제', syncOn:'연결됨', syncUser:'사용자',
+  syncLast:'마지막 동기화', syncErr:'오류', syncBadUrl:'https:// 로 시작하는 주소를 입력하세요. (PC 안에서 시험할 때만 http://localhost 허용)', syncFail:'서버에 연결하지 못했습니다. PC와 서버가 켜져 있는지, Tailscale이 연결돼 있는지 확인하세요.',
+  syncAuth:'토큰이 맞지 않습니다.', syncOk:'연결되었습니다. 앞으로 자동으로 동기화합니다.', confirmSyncOff:'동기화를 해제할까요? (이 기기와 PC의 기록은 그대로 남습니다)', bannerSync:'집 PC와 {n}일째 동기화하지 못했어요.', syncOpen:'확인'},
   ja: {never:'なし', memo:'暗記', wrong:'間違い', empty:'保存された学習記録はありません。', exportFail:'ファイルを保存できませんでした。別のブラウザでお試しください。',
   badFile:'バックアップファイルではないか、壊れたファイルです。', confirmImport:'このバックアップで今の学習記録を置き換えますか?(今の記録は元に戻す用に一度保管されます)', backupDate:'バックアップ日時',
   importPartial:'一部の項目を保存できませんでした(容量不足など)。', importDone:'読み込みが完了しました。', confirmUndo:'読み込む前の状態に戻しますか?',
@@ -289,7 +292,10 @@ const BACKUP_T = {
   undo:'↺ 読み込む前に戻す', auto:'自動バックアップ', autoOn:'オン — 記録が変わるたびに指定したファイルへ自動保存', lastAuto:'前回の自動保存', changeFile:'保存先を変更', stopAuto:'自動バックアップをオフ',
   autoPausedMsg:'ブラウザを開き直すと、安全のため一度だけ許可が必要です。下のボタンを押すと自動保存を続けます。',
   autoNote:'パソコンのChrome・Edgeでは、バックアップファイルを一度指定すれば、勉強するたびにそのファイルが自動で更新されます。(Googleドライブ・OneDriveの同期フォルダに置けばクラウドにも自動保管)', chooseFile:'自動バックアップ先を指定',
-  autoUnsupported:'このブラウザ(iPhone・Safariなど)は安全のためファイルを自動保存できません。代わりに前回のバックアップから{n}日経つとホームにお知らせを出します。', confirmStop:'自動バックアップをオフにしますか?(保存済みのファイルはそのまま残ります)'}
+  autoUnsupported:'このブラウザ(iPhone・Safariなど)は安全のためファイルを自動保存できません。代わりに前回のバックアップから{n}日経つとホームにお知らせを出します。', confirmStop:'自動バックアップをオフにしますか?(保存済みのファイルはそのまま残ります)', syncTitle:'自宅PCと同期', syncNote:'自宅PCで同期サーバー(kotoba_sync)を動かしておくと、学習記録がPCのSQLiteファイルに自動保存され、iPhone・PCどちらで開いても同じ記録が続きます。サーバーのアドレスとユーザートークンを入力してください。',
+  syncUrl:'サーバーのアドレス(例: https://PC名.xxxx.ts.net)', syncToken:'ユーザートークン', syncSave:'接続を確認して保存', syncNow:'今すぐ同期', syncOff:'接続を解除', syncOn:'接続中', syncUser:'ユーザー',
+  syncLast:'前回の同期', syncErr:'エラー', syncBadUrl:'https:// で始まるアドレスを入力してください。(PC内でのテストのみ http://localhost 可)', syncFail:'サーバーに接続できませんでした。PCとサーバーが起動しているか、Tailscaleが接続されているか確認してください。',
+  syncAuth:'トークンが正しくありません。', syncOk:'接続しました。これから自動で同期します。', confirmSyncOff:'同期を解除しますか?(この端末とPCの記録はそのまま残ります)', bannerSync:'自宅PCと{n}日間同期できていません。', syncOpen:'確認'}
 };
 function makeBackup(opt){
   const T = opt.T, esc = opt.esc;
@@ -447,13 +453,93 @@ function makeBackup(opt){
   }
   async function stopAuto(){ handle = null; perm = 'none'; await idb.del('handle'); notify(); }
   // 앱이 기록을 저장할 때마다 자동 저장 예약 (모든 앱의 store.set이 결국 localStorage.setItem을 거침)
+  // ---------- 집 PC 동기화 (kotoba_sync 서버 + SQLite) ----------
+  // 키마다 마지막 변경 시각(sync:meta)을 기록하고, 서버와 주고받아 더 최근 값을 남긴다(last-write-wins).
+  let origSet = null, metaCache = null, syncTimer = null, syncing = null;
+  const getMeta = () => { if (!metaCache) { try { metaCache = JSON.parse(ls.get('sync:meta') || '{}') || {}; } catch(e) { metaCache = {}; } } return metaCache; };
+  const rawSet = (k, v) => { try { (origSet || Storage.prototype.setItem).call(localStorage, k, v); return true; } catch(e) { return false; } };
+  const saveMeta = () => rawSet('sync:meta', JSON.stringify(getMeta()));
+  const syncConf = () => { try { const c = JSON.parse(ls.get('sync:conf') || 'null'); return c && c.url && c.token ? c : null; } catch(e) { return null; } };
+  const validUrl = u => /^https:\/\/[^\s/]+/i.test(u) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(u);
+  async function api(conf, path, body, keepalive){
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    const to = setTimeout(() => ctl && ctl.abort(), 15000);   // 서버가 꺼져 있으면 오래 기다리지 않음
+    try {
+      const r = await fetch(conf.url.replace(/\/+$/, '') + path, {method: body ? 'POST' : 'GET', keepalive: !!keepalive,
+        headers: Object.assign({'Authorization': 'Bearer ' + conf.token}, body ? {'Content-Type': 'application/json'} : {}),
+        body: body ? JSON.stringify(body) : undefined, signal: ctl ? ctl.signal : undefined, cache: 'no-store'});
+      if (r.status === 401) throw new Error('auth');
+      if (!r.ok) throw new Error('http ' + r.status);
+      return await r.json();
+    } finally { clearTimeout(to); }
+  }
+  // 반환: 서버에서 받아 바뀐 키 개수 (실패 시 -1)
+  function syncNow(keepalive){
+    const conf = syncConf(); if (!conf) return Promise.resolve(0);
+    if (syncing) return syncing;
+    syncing = (async () => {
+      const meta = getMeta(), items = {};
+      for (const [k, v] of Object.entries(collect())) items[k] = {v, t: meta[k] || 0};
+      try {
+        const res = await api(conf, '/api/sync', {items}, keepalive);
+        let changed = 0;
+        for (const [k, it] of Object.entries((res && res.items) || {})) {
+          if (!KEY_RE.test(k) || !it || typeof it.v !== 'string') continue;
+          const cur = ls.get(k);
+          if ((it.t || 0) > (meta[k] || 0) || cur == null) {
+            if (cur !== it.v) { rawSet(k, it.v); changed++; }
+            meta[k] = it.t || 0;
+          }
+        }
+        saveMeta(); rawSet('sync:last', String(now())); rawSet('sync:err', '');
+        notify(); return changed;
+      } catch(e) {
+        rawSet('sync:err', e && e.message === 'auth' ? 'auth' : 'net'); notify(); return -1;
+      } finally { syncing = null; }
+    })();
+    return syncing;
+  }
+  const scheduleSync = ms => { clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(), ms == null ? 4000 : ms); };
+  // 다른 기기의 기록을 받아오면 화면 상태(메모리)와 맞추기 위해 한 번 새로고침
+  async function pullAndRefresh(){
+    const n = await syncNow();
+    if (n > 0) {
+      let last = 0; try { last = +sessionStorage.getItem('sync:reload') || 0; } catch(e) {}
+      if (now() - last > 10000) { try { sessionStorage.setItem('sync:reload', String(now())); } catch(e) {} location.reload(); }
+    }
+  }
+  async function connectSync(url, token){
+    url = String(url || '').trim().replace(/\/+$/, ''); token = String(token || '').trim();
+    if (!validUrl(url)) { alert(T.syncBadUrl); return false; }
+    try {
+      const r = await api({url, token}, '/api/ping');
+      if (!r || !r.ok) throw new Error('auth');
+      rawSet('sync:conf', JSON.stringify({url, token, user: r.user}));
+      alert(T.syncOk); await pullAndRefresh(); notify(); return true;
+    } catch(e) { alert(e && e.message === 'auth' ? T.syncAuth : T.syncFail); return false; }
+  }
+  function disconnectSync(){ if (!confirm(T.confirmSyncOff)) return; ls.del('sync:conf'); ls.del('sync:err'); notify(); }
+
   try {
-    const orig = Storage.prototype.setItem;
+    const orig = origSet = Storage.prototype.setItem;
     Storage.prototype.setItem = function(k, v){
       orig.call(this, k, v);
-      if (this === window.localStorage && KEY_RE.test(k) && handle && perm === 'granted') schedule();
+      if (this === window.localStorage && KEY_RE.test(k)) {
+        if (handle && perm === 'granted') schedule();
+        try { const m = getMeta(); m[k] = Date.now(); orig.call(this, 'sync:meta', JSON.stringify(m)); } catch(e) {}
+        if (syncConf()) scheduleSync();
+      }
     };
   } catch(e) {}
+  if (syncConf()) {
+    pullAndRefresh();
+    document.addEventListener('visibilitychange', () => {
+      if (!syncConf()) return;
+      if (document.visibilityState === 'hidden') { if (syncTimer) { clearTimeout(syncTimer); syncNow(true); } }
+      else pullAndRefresh();
+    });
+    window.addEventListener('online', () => scheduleSync(500));
+  }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && timer) { clearTimeout(timer); writeNow(); } });
   loadHandle();
 
@@ -463,7 +549,11 @@ function makeBackup(opt){
     const data = collect();
     const autoOn = !!handle && perm === 'granted';
     const days = last ? Math.floor((now() - last) / DAY) : null;
-    return {last, days, autoOn, autoPaused: !!handle && perm !== 'granted', fs: FS_OK, need: hasLearning(data) && !autoOn && (days == null || days >= REMIND_DAYS)};
+    const sc = syncConf(), sLast = +ls.get('sync:last') || 0, sDays = sLast ? Math.floor((now() - sLast) / DAY) : null;
+    const syncFresh = !!sc && sDays != null && sDays < REMIND_DAYS;
+    return {last, days, autoOn, autoPaused: !!handle && perm !== 'granted', fs: FS_OK,
+      sync: sc, syncLast: sLast, syncErr: ls.get('sync:err') || '', syncStale: !!sc && hasLearning(data) && (sDays == null ? false : sDays >= 3),
+      syncDays: sDays, need: hasLearning(data) && !autoOn && !syncFresh && (days == null || days >= REMIND_DAYS)};
   }
   // 홈 화면 상단 알림: 백업이 오래됐거나 자동 백업이 멈췄을 때만 표시
   function banner(el, onOpen){
@@ -472,10 +562,11 @@ function makeBackup(opt){
       const s = status();
       let msg = '';
       if (s.autoPaused) msg = T.bannerPaused;
+      else if (s.syncStale) msg = T.bannerSync.replace('{n}', s.syncDays);
       else if (s.need) msg = s.days == null ? T.bannerNever : T.bannerDays.replace('{n}', s.days);
-      el.innerHTML = msg ? `<div class="bk-banner"><span>${esc(msg)}</span><button type="button" class="bk-go">${esc(s.autoPaused ? T.resume : T.backupNow)}</button></div>` : '';
+      el.innerHTML = msg ? `<div class="bk-banner"><span>${esc(msg)}</span><button type="button" class="bk-go">${esc(s.autoPaused ? T.resume : s.syncStale ? T.syncOpen : T.backupNow)}</button></div>` : '';
       const b = el.querySelector('.bk-go');
-      if (b) b.onclick = async () => { if (s.autoPaused) { await resume(); draw(); } else if (onOpen) onOpen(); else { await exportFile(); draw(); } };
+      if (b) b.onclick = async () => { if (s.autoPaused) { await resume(); draw(); } else if (s.syncStale && onOpen) onOpen(); else if (onOpen) onOpen(); else { await exportFile(); draw(); } };
     };
     listeners.add(draw); draw();
   }
@@ -484,7 +575,18 @@ function makeBackup(opt){
   function screen(view){
     const draw = () => {
       const s = status(), data = collect();
+      const sc = s.sync;
       view.innerHTML = `
+        <div class="card bk-sec">
+          <h3>${esc(T.syncTitle)}</h3>
+          ${sc ? `<p class="bk-on">● ${esc(T.syncOn)} — ${esc(T.syncUser)}: ${esc(sc.user || '?')}<br><small>${esc(sc.url)}</small></p>
+              <div class="bk-meta">${esc(T.syncLast)}: ${esc(fmt(s.syncLast))}${s.syncErr ? ` · <span style="color:var(--accent)">${esc(T.syncErr)}: ${esc(s.syncErr === 'auth' ? T.syncAuth : T.syncFail)}</span>` : ''}</div>
+              <div class="bk-row" style="margin-top:10px"><button type="button" class="btn primary" id="bkSyncNow">${esc(T.syncNow)}</button><button type="button" class="btn" id="bkSyncOff">${esc(T.syncOff)}</button></div>`
+            : `<p class="bk-note" style="margin-top:0">${T.syncNote}</p>
+              <input class="bk-in" id="bkUrl" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(T.syncUrl)}">
+              <input class="bk-in" id="bkTok" type="password" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(T.syncToken)}">
+              <button type="button" class="btn primary" id="bkSyncSave" style="width:100%">${esc(T.syncSave)}</button>`}
+        </div>
         <div class="card bk-sec">
           <h3>${esc(T.current)}</h3>
           <pre class="bk-sum">${esc(summary(data))}</pre>
@@ -515,6 +617,11 @@ function makeBackup(opt){
       on('bkChange', async () => { await chooseFile(); draw(); });
       on('bkResume', async () => { await resume(); draw(); });
       on('bkStop', async () => { if (confirm(T.confirmStop)) { await stopAuto(); draw(); } });
+      on('bkSyncSave', async () => { const b = view.querySelector('#bkSyncSave'); b.disabled = true;
+        const ok = await connectSync(view.querySelector('#bkUrl').value, view.querySelector('#bkTok').value); b.disabled = false; if (ok) draw(); });
+      on('bkSyncNow', async () => { const b = view.querySelector('#bkSyncNow'); b.disabled = true; const n = await syncNow(); b.disabled = false;
+        if (n > 0) location.reload(); else draw(); });
+      on('bkSyncOff', () => { disconnectSync(); draw(); });
     };
     listeners.add(draw); draw();
     return () => listeners.delete(draw);
@@ -526,10 +633,11 @@ function makeBackup(opt){
 .bk-sum{white-space:pre-wrap;font:inherit;font-size:14px;margin:0}.bk-meta{font-size:12px;color:var(--sub);margin-top:8px}
 .bk-row{display:flex;gap:8px}.bk-row .btn{flex:1;text-align:center;cursor:pointer}
 .bk-note{font-size:12px;color:var(--sub);margin:8px 0 0;line-height:1.6}.bk-on{color:var(--ok,#2f8f5b);font-weight:600;margin:0 0 10px}.bk-on small{color:var(--sub);font-weight:400}
-.bk-off{color:var(--accent);margin:0 0 10px}`;
+.bk-off{color:var(--accent);margin:0 0 10px}
+.bk-in{display:block;width:100%;font:inherit;font-size:15px;padding:12px;margin:8px 0;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink)}`;
   try { const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st); } catch(e) {}
 
-  return {exportFile, importFile, screen, banner, status, collect};
+  return {exportFile, importFile, screen, banner, status, collect, syncNow};
 }
 
 const BK = makeBackup({esc, T: BACKUP_T.ja});
