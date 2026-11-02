@@ -141,6 +141,10 @@ h2.sub{font-size:14px;color:var(--sub);margin:18px 0 8px;font-weight:600}
 .gx .meta{font-size:12px;color:var(--sub);margin-top:6px}
 .gsent{font-size:21px;line-height:1.8;text-align:left}
 .sub.cat{margin:14px 0 2px;font-size:12px}
+.pstar{font-size:12px;margin-left:6px;vertical-align:4px;color:var(--accent);font-family:inherit;letter-spacing:-1px}
+.pstar.t1{opacity:.7}
+.pred{display:inline-block;margin-top:8px;padding:5px 10px;border-radius:10px;background:var(--accent-weak);color:var(--accent);font-size:13px;font-weight:600}
+.pred small{display:block;font-weight:400;color:var(--sub);font-size:11px;margin-top:2px}
 .qparts{flex-wrap:wrap}.qparts .btn{flex:1 1 40%}.qparts small{opacity:.8;font-weight:400;margin-left:2px}
 .blank{display:inline-block;min-width:3.5em;border-bottom:2px solid var(--accent);color:var(--accent);text-align:center}
 </style>
@@ -200,7 +204,8 @@ for (const line of RAW_READ.split('\n')) {
 }
 const PER_DAY = 20, PART_MAX = 25;
 const CIRC = '①②③④⑤⑥⑦⑧⑨⑩';
-const WORDS = WORDS_JSON.map((x, i) => ({...x, years: x.years || [], id: i}));
+const WORDS = WORDS_JSON.map((x, i) => ({...x, years: x.years || [], id: i, pred: (PRED.words || {})[x.w] || null}));
+const STAR = t => t === 2 ? '★★' : t === 1 ? '★' : '';
 // BOOK: 단어장의 Day 단위 / QSETS: 퀴즈 단위 (main은 하루 분량이 많아 25문제 이하로 나눔)
 const BOOK = [], QSETS = [];
 if (IS_MAIN) {
@@ -437,7 +442,8 @@ function Home(){
     </div>
     <p class="note">${IS_MAIN
       ? `출처: 해커스 JLPT N2 한 권으로 합격 「필수 단어·문형 암기장」. 단어 ${WORDS.length}개(1~25일, 일차가 다르면 중복 수록) · 문형 ${GRAMMAR.length}개(26~30일).<br>
-    퀴즈는 하루 분량을 ${PART_MAX}문제 이하 세트(①②…)로 나눠 풉니다. ’연도는 그 단어의 기출 연도입니다.<br>`
+    퀴즈는 하루 분량을 ${PART_MAX}문제 이하 세트(①②…)로 나눠 풉니다. ’연도는 그 단어의 기출 연도입니다.<br>
+    ★★/★ 출제 예상: 2010~19 기출 횟수·마지막 출제 연도·문제 유형과 2021~26 실제 기출을 학습한 통계 모형으로 상위 5%(★★)·다음 10%(★)를 표시했습니다${PRED.meta ? ` (검증 AUC ${PRED.meta.val_auc})` : ''}. 2025~26년에 이미 나온 단어는 낮게 반영했습니다. 실제 출제를 보장하지 않는 참고용입니다.<br>`
       : `출처: JLPT N2 기출 어휘·문형 2021~2026 (해커스 기출 PDF). 어휘 ${WORDS.length}개 · 문형 ${GRAMMAR.length}개 (PDF 전체 수록).<br>`}
     유래는 『설문해자』 계열 전통 해석을 바탕으로 한 요약이며, 학설이 갈리는 글자는 암기하기 쉬운 풀이를 택했습니다.<br>
     복습 주기: 정답 시 1일 → 3일 → 이후 간격×난이도 계수, 오답 시 당일 재복습.</p>`;
@@ -462,18 +468,19 @@ function Book(day){
   day = Math.min(Math.max(1, day|0), BOOK.length);
   store.set('bookDay', day);
   setHeader('단어 암기장', true);
-  const list = BOOK[day-1].words.filter(w => bookFilter === 'all' || (bookFilter === 'todo' ? !memorized.has(w.id) : memorized.has(w.id)));
+  const list = BOOK[day-1].words.filter(w => bookFilter === 'all' || (bookFilter === 'pred' ? !!w.pred : bookFilter === 'todo' ? !memorized.has(w.id) : memorized.has(w.id)));
   view.innerHTML = `
     <div class="days" id="days">${BOOK.map((d, i) => `<button class="${i+1===day?'on':''}" data-d="${i+1}">${esc(d.short)}</button>`).join('')}</div>
     <div class="toolbar">
       <button class="pill ${bookFilter==='all'?'on':''}" data-f="all">전체 ${BOOK[day-1].words.length}</button>
       <button class="pill ${bookFilter==='todo'?'on':''}" data-f="todo">미암기</button>
       <button class="pill ${bookFilter==='done'?'on':''}" data-f="done">암기 완료</button>
+      <button class="pill ${bookFilter==='pred'?'on':''}" data-f="pred">출제 예상 ★</button>
     </div>
     <div class="list">${list.map((w, i) => `${w.h && (i === 0 || list[i-1].h !== w.h) ? `<h2 class="sub cat">${esc(w.h)}</h2>` : ''}
       <div class="card row ${memorized.has(w.id)?'done':''}" data-id="${w.id}">
         <button class="chk ${memorized.has(w.id)?'on':''}" data-chk="${w.id}" aria-label="암기 체크">${memorized.has(w.id)?'✓':''}</button>
-        <div class="w jp">${esc(w.w)}${w.r !== w.w ? `<small>${esc(w.r)}</small>` : ''}</div>
+        <div class="w jp">${esc(w.w)}${w.pred ? `<span class="pstar t${w.pred.tier}" title="출제 예상">${STAR(w.pred.tier)}</span>` : ''}${w.r !== w.w ? `<small>${esc(w.r)}</small>` : ''}</div>
         <div class="m">${esc(w.m)}</div>
       </div>`).join('') || '<p class="note">해당하는 단어가 없습니다.</p>'}</div>
     <div class="nav2 qparts">${qsetsOf(day).map(q => `<button class="btn primary" data-q="${esc(q.key)}">${esc(q.label)} 퀴즈${IS_MAIN ? ` <small>${q.words.length}</small>` : ' 풀기'}</button>`).join('')}</div>`;
@@ -538,6 +545,7 @@ function Detail(id, ids){
         <div class="mean">${esc(w.m)}</div>
         <div class="yrs">${w.pos ? `${esc(POS[w.pos] || w.pos)} · ` : ''}${w.years.length ? `기출 ${w.years.join(', ')}년 · ` : ''}${esc(srsLabel('w' + id))}</div>
         ${w.h ? `<div class="yrs">${esc(w.h)}</div>` : ''}
+        ${w.pred ? `<div class="pred t${w.pred.tier}">${STAR(w.pred.tier)} 2026년 12월 출제 예상 <small>${esc(w.pred.why)}</small></div>` : ''}
         <button class="tts" id="tts">🔊 발음 듣기</button>
       </div>
       <div class="card sec"><h3>한자 분해 · 유래</h3>
@@ -588,12 +596,19 @@ function QuizMenu(){
       return `<button class="card ${pf?'perfect':''}" data-d="${esc(q.key)}"><b>${esc(q.label)}</b><span>${b ? `최고 ${b.score}/${b.total}` : `${q.words.length}문제`}</span></button>`; }).join('')}
       ${IS_MAIN ? `<button class="card" data-d="day"><b>${esc(BOOK[qd-1].label)} 전체</b><span>${BOOK[qd-1].words.length}문제</span></button>` : ''}
       <button class="card" data-d="all"><b>전체 랜덤</b><span>20문제</span></button>
+      ${WORDS.some(w => w.pred) ? `<button class="card perfect" data-d="pred"><b>출제 예상 ★</b><span>${new Set(WORDS.filter(w => w.pred).map(w => w.w)).size}개 중 25문제</span></button>` : ''}
     </div>`;
   const on = view.querySelector('.days .on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
   view.querySelectorAll('[data-qd]').forEach(b => b.onclick = () => { store.set('quizDay', +b.dataset.qd); QuizMenu(); });
   view.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { quizMode = b.dataset.m; store.set('quizMode', quizMode); QuizMenu(); });
   view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
     if (b.dataset.d === 'all') go(Quiz, [shuffle(WORDS).slice(0, 20), '전체 랜덤', null]);
+    else if (b.dataset.d === 'pred') {
+      // 같은 단어가 여러 일차에 있으면 한 번만, ★★를 먼저 섞어서 출제
+      const seen = new Set(), uniq = WORDS.filter(w => w.pred && !seen.has(w.w) && seen.add(w.w));
+      const pick = [...shuffle(uniq.filter(w => w.pred.tier === 2)), ...shuffle(uniq.filter(w => w.pred.tier === 1))].slice(0, 25);
+      go(Quiz, [pick, '출제 예상 퀴즈', null]);
+    }
     else if (b.dataset.d === 'day') go(Quiz, [BOOK[qd-1].words, `${BOOK[qd-1].label} 전체`, null]);
     else { const q = QSETS.find(x => String(x.key) === b.dataset.d); if (q) go(Quiz, [q.words, `${q.label} 퀴즈`, q.key]); }
   });
