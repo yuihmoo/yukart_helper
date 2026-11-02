@@ -118,6 +118,7 @@ def build(out, words, gram, conf):
             f'const RAW_KANJI = {js(kanji_sub)};\n'
             f'const RAW_EX = {js(ex_sub)};\n'
             f'const GRAM_JSON = {js(gram)};\n'
+            f'const PRED = {js(PRED)};\n'
             f'const RAW_READ = {js(read_sub)};')
     html = (SRC / 'template.html').read_text(encoding='utf-8').replace('/*__DATA__*/', data, 1)
     html = html.replace('/*__VOICE__*/', (ROOT / 'shared' / 'voice.js').read_text(encoding='utf-8'), 1)
@@ -125,6 +126,10 @@ def build(out, words, gram, conf):
     (ROOT / out).write_text(html, encoding='utf-8')
     print(f'OK: {out} ({len(html)//1024} KB, 단어 {len(words)}, 한자 {len(used)}, 문형 {len(gram)})')
 
+
+# 출제 예상(predict.py 결과) — 없으면 표시하지 않음
+_pp = SRC / 'main' / 'predict.json'
+PRED = json.loads(_pp.read_text(encoding='utf-8')) if _pp.exists() else {'meta': None, 'words': {}}
 
 # ---------- main: 필수 단어·문형 ----------
 main_words = json.loads((SRC / 'main' / 'words.json').read_text(encoding='utf-8'))
