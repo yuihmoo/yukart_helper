@@ -59,7 +59,10 @@ js = lambda o: json.dumps(o, ensure_ascii=False, separators=(',', ':')).replace(
 missing_ex = [v['n'] for v in vocab if v['n'] not in examples]
 if missing_ex:
     sys.exit(f'예문 누락: {missing_ex[:20]} … ({len(missing_ex)}개)')
-data = f'const VOCAB = {js(vocab)};\nconst HANJA = {js(hanja)};\nconst GRAM = {js(out_g)};\nconst EXAMPLES = {js(examples)};'
+# 자주 쓰는 단어(freq.py 결과) — 없으면 별표 없이 빌드
+_fp = SRC / 'freq.json'
+freq = json.loads(_fp.read_text(encoding='utf-8')) if _fp.exists() else {'meta': None, 'words': {}}
+data = f'const FREQ = {js(freq)};\n' + f'const VOCAB = {js(vocab)};\nconst HANJA = {js(hanja)};\nconst GRAM = {js(out_g)};\nconst EXAMPLES = {js(examples)};'
 html = (SRC / 'template.html').read_text(encoding='utf-8').replace('/*__DATA__*/', data, 1)
 html = html.replace('/*__VOICE__*/', (SRC.parent / 'shared' / 'voice.js').read_text(encoding='utf-8'), 1)
 html = html.replace('/*__BACKUP__*/', (SRC.parent / 'shared' / 'backup.js').read_text(encoding='utf-8'), 1)
