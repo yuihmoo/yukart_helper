@@ -62,6 +62,10 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 .row .m{font-size:13px;color:var(--sub);text-align:right;max-width:50%}
 .row.done{opacity:.55}
 .hjtag{font-size:12px;color:var(--accent);margin-left:6px}
+.pstar{font-size:12px;margin-left:6px;vertical-align:4px;color:var(--accent);font-family:inherit;letter-spacing:-1px}
+.pstar.t1{opacity:.7}
+.pred{display:inline-block;margin-top:8px;padding:5px 10px;border-radius:10px;background:var(--accent-weak);color:var(--accent);font-size:13px;font-weight:600}
+.pred small{display:block;font-weight:400;color:var(--sub);font-size:11px;margin-top:2px}
 .chk{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);flex:0 0 auto;display:grid;place-items:center;font-size:13px}
 .chk.on{background:var(--ok);border-color:var(--ok);color:#fff}
 .toolbar{display:flex;gap:8px;margin:0 0 10px;flex-wrap:wrap}
@@ -151,7 +155,8 @@ const chunk = (arr, n) => { const d = []; for (let i = 0; i < arr.length; i += n
 
 // ---------- data ----------
 const PER_DAY = 30, G_PER_DAY = 20;
-const WORDS = VOCAB.map((x, i) => ({id: i, n: x.n, no: x.no || x.n, lv: x.lv ? 1 : 0, ko: x.ko, ja: x.ja, hj: HANJA[x.n] || null, ex: EXAMPLES[x.n] || null}));
+const WORDS = VOCAB.map((x, i) => ({id: i, n: x.n, no: x.no || x.n, lv: x.lv ? 1 : 0, ko: x.ko, ja: x.ja, hj: HANJA[x.n] || null, ex: EXAMPLES[x.n] || null, freq: ((FREQ && FREQ.words) || {})[x.n] || null}));
+const STAR = t => t === 2 ? '★★' : t === 1 ? '★' : '';
 // 중급(기존 Day 번호 유지) 뒤에 초급을 이어붙임 → 저장된 최고점·암기 기록의 Day/ID가 바뀌지 않음
 const MID_DAYS = chunk(WORDS.filter(w => !w.lv), PER_DAY), BEG_DAYS = chunk(WORDS.filter(w => w.lv), PER_DAY);
 const DAYS = [...MID_DAYS, ...BEG_DAYS];
@@ -288,7 +293,7 @@ let bookFilter = 'all';
 function Book(day){
   day = Math.min(Math.max(1, day|0), DAYS.length); store.set('bookDay', day); setLv(DAYS[day-1].lv);
   setHeader('単語帳');
-  const list = DAYS[day-1].filter(w => bookFilter === 'all' || (bookFilter === 'todo' ? !memorized.has(w.id) : bookFilter === 'hj' ? w.hj : memorized.has(w.id)));
+  const list = DAYS[day-1].filter(w => bookFilter === 'all' || (bookFilter === 'todo' ? !memorized.has(w.id) : bookFilter === 'hj' ? w.hj : bookFilter === 'freq' ? !!w.freq : memorized.has(w.id)));
   view.innerHTML = `
     ${lvSeg()}
     <div class="days">${lvDays(curLv).map(g => `<button class="${g===day?'on':''}" data-d="${g}">Day ${curLv ? g - MID_DAYS.length : g}</button>`).join('')}</div>
@@ -297,11 +302,12 @@ function Book(day){
       <button class="pill ${bookFilter==='todo'?'on':''}" data-f="todo">未暗記</button>
       <button class="pill ${bookFilter==='done'?'on':''}" data-f="done">覚えた</button>
       <button class="pill ${bookFilter==='hj'?'on':''}" data-f="hj">漢字語</button>
+      <button class="pill ${bookFilter==='freq'?'on':''}" data-f="freq">よく使う ★</button>
     </div>
     <div class="list">${list.map(w => `
       <div class="card row ${memorized.has(w.id)?'done':''}" data-id="${w.id}">
         <button class="chk ${memorized.has(w.id)?'on':''}" data-chk="${w.id}" aria-label="暗記チェック">${memorized.has(w.id)?'✓':''}</button>
-        <div class="w ko">${esc(w.ko)}${w.hj ? `<span class="hjtag kj">${esc(w.hj.map(h => h[1]).join(''))}</span>` : ''}</div>
+        <div class="w ko">${esc(w.ko)}${w.hj ? `<span class="hjtag kj">${esc(w.hj.map(h => h[1]).join(''))}</span>` : ''}${w.freq ? `<span class="pstar t${w.freq.tier}">${STAR(w.freq.tier)}</span>` : ''}</div>
         <div class="m">${esc(w.ja)}</div>
       </div>`).join('') || '<p class="note">該当する単語がありません。</p>'}</div>
     <div class="nav2"><button class="btn primary" id="toQuiz">${dayLabel(day)} クイズ</button></div>`;
@@ -368,6 +374,7 @@ function Detail(id, ids){
       ${w.hj && w.hj.map(h => h[1]).join('') !== w.ja ? `<div class="kj" style="font-size:20px;color:var(--sub)">${esc(w.hj.map(h => h[1]).join(''))}</div>` : ''}
       <div class="mean">${esc(w.ja)}</div>
       <div class="meta">${LV_NAME[w.lv]} No.${w.no} · ${esc(srsLabel('w' + w.id))}</div>
+      ${w.freq ? `<div class="pred t${w.freq.tier}">${STAR(w.freq.tier)} よく使う単語 <small>一般的な韓国語の使用頻度で${LV_NAME[w.lv]}の上位${w.freq.tier === 2 ? '5' : '15'}%（TOPIK出題予想ではありません）</small></div>` : ''}
       <button class="tts" id="tts">🔊 発音を聞く</button>
     </div>
     ${w.ex ? `<div class="card sec ex"><h3>例文</h3>
@@ -417,11 +424,16 @@ function QuizMenu(){
     <div class="dgrid">${lvDays(curLv).map(g => { const d = DAYS[g-1], b = best[g]; const pf = b && b.score === b.total;
       return `<button class="card ${pf?'perfect':''}" data-d="${g}"><b>Day ${curLv ? g - MID_DAYS.length : g}</b><span>${b ? `最高 ${b.score}/${b.total}` : `${d.length}問`}</span></button>`; }).join('')}
       <button class="card" data-d="all"><b>ランダム</b><span>20問</span></button>
+      ${WORDS.some(w => w.freq && w.lv === curLv) ? `<button class="card" data-d="freq"><b>よく使う ★</b><span>25問</span></button>` : ''}
     </div>`;
   view.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { quizMode = b.dataset.m; store.set('quizMode', quizMode); QuizMenu(); });
   view.querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { setLv(+b.dataset.lv); QuizMenu(); });
   view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
-    if (b.dataset.d === 'all') go(Quiz, [shuffle(WORDS.filter(w => w.lv === curLv)).slice(0, 20), `${LV_NAME[curLv]} ランダム`, null]);
+    if (b.dataset.d === 'freq') {
+      const fl = WORDS.filter(w => w.freq && w.lv === curLv);
+      const pick = [...shuffle(fl.filter(w => w.freq.tier === 2)), ...shuffle(fl.filter(w => w.freq.tier !== 2))].slice(0, 25);
+      if (pick.length) go(Quiz, [shuffle(pick), `${LV_NAME[curLv]} よく使う単語`, null]);
+    } else if (b.dataset.d === 'all') go(Quiz, [shuffle(WORDS.filter(w => w.lv === curLv)).slice(0, 20), `${LV_NAME[curLv]} ランダム`, null]);
     else { const d = +b.dataset.d; go(Quiz, [DAYS[d-1], `${dayLabel(d)} クイズ`, d]); }
   });
 }
