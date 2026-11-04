@@ -42,6 +42,13 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 header.top{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;align-items:center;gap:8px;padding:12px 0 10px}
 header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .iconbtn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:var(--chip)}
+.iconbtn.txt{width:auto;padding:0 10px;font-size:13px;font-weight:600;color:var(--sub);white-space:nowrap}
+.iconbtn.txt.on{background:var(--accent);color:#fff}
+/* 가리기: 뜻·읽기 / 예문 해석 (탭하면 그 항목만 잠깐 보기) */
+.hide-m .detail .reading,.hide-m .detail .mean,.hide-m .rd .use,.hide-m .rd .rchip.hit,.hide-m .rd .rchip:not(.hit) small i,
+.hide-m .row .m,.hide-m .row .w small,
+.hide-k .ex .k,.hide-k .gx .k{filter:blur(7px);cursor:pointer;user-select:none;transition:filter .15s}
+.hide-m .peek,.hide-k .peek{filter:none!important}
 .hidden{display:none!important}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
 .menu{display:grid;gap:12px;margin-top:8px}
@@ -154,6 +161,8 @@ h2.sub{font-size:14px;color:var(--sub);margin:18px 0 8px;font-weight:600}
   <header class="top">
     <button class="iconbtn hidden" id="backBtn" aria-label="뒤로">‹</button>
     <h1 id="title">N2 기출 한자</h1>
+    <button class="iconbtn txt" id="blurM" aria-label="뜻·읽기 가리기" aria-pressed="false">뜻</button>
+    <button class="iconbtn txt" id="blurK" aria-label="예문 해석 가리기" aria-pressed="false">해석</button>
     <button class="iconbtn" id="themeBtn" aria-label="테마 전환">◐</button>
   </header>
   <main id="view"></main>
@@ -720,6 +729,32 @@ themeBtn.onclick = () => {
   const next = cur === 'dark' ? 'light' : 'dark';
   applyTheme(next); themeStore.set(next);
 };
+
+// ---------- 가리기(셀프 테스트) : 상태는 테마처럼 두 세트 공용 ----------
+const BLUR_SEL = {m: '.detail .reading, .detail .mean, .rd .use, .rd .rchip.hit, .rd .rchip:not(.hit) small i, .row .m, .row .w small', k: '.ex .k, .gx .k'};
+const blurStore = {
+  get(){ try{ const v = JSON.parse(localStorage.getItem('n2:blur') || '{}'); return v && typeof v === 'object' ? v : {}; }catch(e){ return {}; } },
+  set(v){ try{ localStorage.setItem('n2:blur', JSON.stringify(v)); }catch(e){} }
+};
+let blur = blurStore.get();
+function applyBlur(){
+  for (const k of ['m', 'k']) {
+    document.documentElement.classList.toggle('hide-' + k, !!blur[k]);
+    const b = document.getElementById(k === 'm' ? 'blurM' : 'blurK');
+    if (b) { b.classList.toggle('on', !!blur[k]); b.setAttribute('aria-pressed', blur[k] ? 'true' : 'false'); }
+  }
+  document.querySelectorAll('.peek').forEach(el => el.classList.remove('peek'));
+}
+for (const k of ['m', 'k']) document.getElementById(k === 'm' ? 'blurM' : 'blurK').onclick = () => { blur = {...blur, [k]: !blur[k]}; blurStore.set(blur); applyBlur(); };
+applyBlur();
+// 가려진 항목을 탭하면 그 항목만 보기/다시 가리기 (단어장 행 이동 등 다른 클릭은 막음)
+document.addEventListener('click', e => {
+  for (const k of ['m', 'k']) {
+    if (!blur[k] || !(e.target instanceof Element)) continue;
+    const el = e.target.closest(BLUR_SEL[k]);
+    if (el) { e.stopPropagation(); e.preventDefault(); el.classList.toggle('peek'); return; }
+  }
+}, true);
 
 // ---------- router ----------
 const view = document.getElementById('view'), titleEl = document.getElementById('title'), backBtn = document.getElementById('backBtn');
