@@ -42,6 +42,10 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 header.top{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;align-items:center;gap:8px;padding:12px 0 10px}
 header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .iconbtn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:var(--chip)}
+.swipe-l{animation:swl .18s ease-out}.swipe-r{animation:swr .18s ease-out}
+@keyframes swl{from{transform:translateX(40px);opacity:.4}to{transform:none;opacity:1}}
+@keyframes swr{from{transform:translateX(-40px);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.swipe-l,.swipe-r{animation:none}}
 .iconbtn.txt{width:auto;padding:0 10px;font-size:13px;font-weight:600;color:var(--sub);white-space:nowrap}
 .iconbtn.txt.on{background:var(--accent);color:#fff}
 /* 가리기: 뜻·읽기 / 예문 해석 (탭하면 그 항목만 잠깐 보기) */
@@ -885,6 +889,35 @@ document.addEventListener('keydown', e => {
   }
   if (b) { e.preventDefault(); b.click(); }   // preventDefault: 포커스된 버튼의 Enter 기본 클릭과 중복 방지
 });
+
+// ---------- 스와이프: 왼쪽으로 밀면 다음, 오른쪽으로 밀면 이전 (아이폰 한 손 조작) ----------
+(() => {
+  let sx = 0, sy = 0, st = 0, on = false;
+  const btn = id => { const b = document.getElementById(id); return b && !b.disabled ? b : null; };
+  view.addEventListener('touchstart', e => {
+    on = false;
+    if (e.touches.length !== 1) return;                        // 핀치 확대 등은 무시
+    const t = e.target;
+    if (t instanceof Element && t.closest('input, textarea, [contenteditable], .days')) return;   // 입력칸·가로 스크롤 영역
+    const p = e.touches[0];
+    if (p.clientX < 24 || p.clientX > innerWidth - 24) return; // 화면 가장자리: iOS 뒤로가기 제스처와 충돌 방지
+    sx = p.clientX; sy = p.clientY; st = Date.now(); on = true;
+  }, {passive: true});
+  view.addEventListener('touchcancel', () => { on = false; }, {passive: true});
+  view.addEventListener('touchend', e => {
+    if (!on) return; on = false;
+    const p = e.changedTouches[0]; if (!p) return;
+    const dx = p.clientX - sx, dy = p.clientY - sy;
+    if (Date.now() - st > 700 || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;   // 세로 스크롤·느린 드래그 제외
+    const sel = getSelection && getSelection(); if (sel && String(sel).length) return;              // 글자 선택 중
+    const b = dx < 0 ? (btn('nx') || btn('next')) : btn('prev');
+    if (!b) return;
+    b.click();
+    view.classList.remove('swipe-l', 'swipe-r'); void view.offsetWidth;
+    view.classList.add(dx < 0 ? 'swipe-l' : 'swipe-r');
+  }, {passive: true});
+  view.addEventListener('animationend', () => view.classList.remove('swipe-l', 'swipe-r'));
+})();
 
 // ---------- boot ----------
 go(Home);
