@@ -43,6 +43,16 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 header.top{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;align-items:center;gap:8px;padding:12px 0 10px}
 header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .iconbtn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:var(--chip)}
+.iconbtn.txt{width:auto;padding:0 10px;font-size:13px;font-weight:600;color:var(--sub);white-space:nowrap}
+.iconbtn.txt.on{background:var(--accent);color:#fff}
+/* 隠す: 意味（漢字含む）/ 例文の訳 — タップするとその項目だけ表示 */
+.hide-m .head .mean,.hide-m .head .kj,.hide-m .hjsec > :not(h3),.hide-m .row .m,.hide-m .row .hjtag,
+.hide-k .ex .k,.hide-k .gx .k{filter:blur(7px);cursor:pointer;user-select:none;transition:filter .15s}
+.hide-m .peek,.hide-k .peek{filter:none!important}
+.swipe-l{animation:swl .18s ease-out}.swipe-r{animation:swr .18s ease-out}
+@keyframes swl{from{transform:translateX(40px);opacity:.4}to{transform:none;opacity:1}}
+@keyframes swr{from{transform:translateX(-40px);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.swipe-l,.swipe-r{animation:none}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
 .menu{display:grid;gap:12px;margin-top:8px}
 .menu .card{padding:18px 20px;text-align:left;display:flex;gap:16px;align-items:center;width:100%}
@@ -134,6 +144,8 @@ h2.sub{font-size:14px;color:var(--sub);margin:18px 0 8px;font-weight:600}
   <header class="top">
     <button class="iconbtn" id="backBtn" aria-label="戻る">‹</button>
     <h1 id="title">TOPIK 韓国語</h1>
+    <button class="iconbtn txt" id="blurM" aria-label="意味を隠す" aria-pressed="false">意味</button>
+    <button class="iconbtn txt" id="blurK" aria-label="例文の訳を隠す" aria-pressed="false">訳</button>
     <button class="iconbtn" id="themeBtn" aria-label="テーマ">◐</button>
   </header>
   <main id="view"></main>
@@ -552,6 +564,30 @@ document.getElementById('themeBtn').onclick = () => {
   applyTheme(next); try { localStorage.setItem('n2:theme', JSON.stringify(next)); } catch(e) {}
 };
 
+// ---------- 隠す（セルフテスト）: 状態は ren:blur に保存 ----------
+const BLUR_SEL = {m: '.head .mean, .head .kj, .hjsec > :not(h3), .row .m, .row .hjtag', k: '.ex .k, .gx .k'};
+let blur = (() => { try { const v = JSON.parse(localStorage.getItem('ren:blur') || '{}'); return v && typeof v === 'object' ? v : {}; } catch(e) { return {}; } })();
+function applyBlur(){
+  for (const k of ['m', 'k']) {
+    document.documentElement.classList.toggle('hide-' + k, !!blur[k]);
+    const b = document.getElementById(k === 'm' ? 'blurM' : 'blurK');
+    if (b) { b.classList.toggle('on', !!blur[k]); b.setAttribute('aria-pressed', blur[k] ? 'true' : 'false'); }
+  }
+  document.querySelectorAll('.peek').forEach(el => el.classList.remove('peek'));
+}
+for (const k of ['m', 'k']) document.getElementById(k === 'm' ? 'blurM' : 'blurK').onclick = () => {
+  blur = {...blur, [k]: !blur[k]}; try { localStorage.setItem('ren:blur', JSON.stringify(blur)); } catch(e) {} applyBlur();
+};
+applyBlur();
+// 隠れた項目をタップ → その項目だけ表示/再び隠す（単語帳の行移動などは止める）
+document.addEventListener('click', e => {
+  for (const k of ['m', 'k']) {
+    if (!blur[k] || !(e.target instanceof Element)) continue;
+    const el = e.target.closest(BLUR_SEL[k]);
+    if (el) { e.stopPropagation(); e.preventDefault(); el.classList.toggle('peek'); return; }
+  }
+}, true);
+
 // ---------- router ----------
 const view = document.getElementById('view'), titleEl = document.getElementById('title');
 let stack = [];
@@ -739,7 +775,7 @@ function Detail(id, ids){
       <div class="s ko">${exMarked(w.ex[0], w.ko)}</div>
       <div class="k">${esc(w.ex[1])}</div>
       <button class="tts" id="ttsEx">🔊 例文を聞く</button></div>` : ''}
-    <div class="card sec"><h3>漢字で分解 · 同じ漢字を使う単語</h3>${hjBlock}</div>
+    <div class="card sec hjsec"><h3>漢字で分解 · 同じ漢字を使う単語</h3>${hjBlock}</div>
     <div class="nav2">
       <button class="btn" id="prev" ${pos <= 0 ? 'disabled' : ''}>‹ 前へ</button>
       <button class="btn ${memorized.has(id)?'':'primary'}" id="memo">${memorized.has(id) ? '取り消し' : '覚えた ✓'}</button>
@@ -974,6 +1010,35 @@ document.addEventListener('keydown', e => {
   }
   if (b) { e.preventDefault(); b.click(); }   // preventDefault: 포커스된 버튼의 Enter 기본 클릭과 중복 방지
 });
+
+// ---------- 스와이프: 왼쪽으로 밀면 다음, 오른쪽으로 밀면 이전 (아이폰 한 손 조작) ----------
+(() => {
+  let sx = 0, sy = 0, st = 0, on = false;
+  const btn = id => { const b = document.getElementById(id); return b && !b.disabled ? b : null; };
+  view.addEventListener('touchstart', e => {
+    on = false;
+    if (e.touches.length !== 1) return;                        // 핀치 확대 등은 무시
+    const t = e.target;
+    if (t instanceof Element && t.closest('input, textarea, [contenteditable], .days')) return;   // 입력칸·가로 스크롤 영역
+    const p = e.touches[0];
+    if (p.clientX < 24 || p.clientX > innerWidth - 24) return; // 화면 가장자리: iOS 뒤로가기 제스처와 충돌 방지
+    sx = p.clientX; sy = p.clientY; st = Date.now(); on = true;
+  }, {passive: true});
+  view.addEventListener('touchcancel', () => { on = false; }, {passive: true});
+  view.addEventListener('touchend', e => {
+    if (!on) return; on = false;
+    const p = e.changedTouches[0]; if (!p) return;
+    const dx = p.clientX - sx, dy = p.clientY - sy;
+    if (Date.now() - st > 700 || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;   // 세로 스크롤·느린 드래그 제외
+    const sel = getSelection && getSelection(); if (sel && String(sel).length) return;              // 글자 선택 중
+    const b = dx < 0 ? (btn('nx') || btn('next')) : btn('prev');
+    if (!b) return;
+    b.click();
+    view.classList.remove('swipe-l', 'swipe-r'); void view.offsetWidth;
+    view.classList.add(dx < 0 ? 'swipe-l' : 'swipe-r');
+  }, {passive: true});
+  view.addEventListener('animationend', () => view.classList.remove('swipe-l', 'swipe-r'));
+})();
 
 // ---------- boot ----------
 go(Home);
