@@ -51,6 +51,11 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 .hide-m .head .mean,.hide-m .head .kj,.hide-m .hjsec > :not(h3),.hide-m .row .m,.hide-m .row .hjtag,
 .hide-k .ex .k,.hide-k .gx .k{filter:blur(7px);cursor:pointer;user-select:none;transition:filter .15s}
 .hide-m .peek,.hide-k .peek{filter:none!important}
+#view{touch-action:manipulation}   /* 더블탭 확대 끄기(핀치 확대는 유지) */
+.dtoast{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(.9);padding:12px 20px;border-radius:14px;
+  background:var(--accent);color:var(--on-accent);font-weight:700;font-size:17px;box-shadow:0 6px 24px rgba(0,0,0,.2);
+  opacity:0;pointer-events:none;transition:opacity .15s,transform .15s;z-index:20}
+.dtoast.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
 .swipe-l{animation:swl .18s ease-out}.swipe-r{animation:swr .18s ease-out}
 @keyframes swl{from{transform:translateX(40px);opacity:.4}to{transform:none;opacity:1}}
 @keyframes swr{from{transform:translateX(-40px);opacity:.4}to{transform:none;opacity:1}}
@@ -688,6 +693,42 @@ document.addEventListener('keydown', e => {
     view.classList.add(dx < 0 ? 'swipe-l' : 'swipe-r');
   }, {passive: true});
   view.addEventListener('animationend', () => view.classList.remove('swipe-l', 'swipe-r'));
+})();
+
+// ---------- 더블탭: 단어 상세에서 화면을 두 번 톡톡 → '覚えた' (이미 외운 단어면 취소하지 않고 다음으로만) ----------
+(() => {
+  const TAP_MS = 320, TAP_MOVE = 24;
+  let last = null, start = null;
+  const toast = document.createElement('div'); toast.className = 'dtoast'; toast.setAttribute('role', 'status'); document.body.appendChild(toast);
+  let tt = 0;
+  const show = msg => { toast.textContent = msg; toast.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => toast.classList.remove('on'), 700); };
+  // 버튼·링크·입력칸·가려진 항목(탭하면 보기) 위에서는 원래 동작을 그대로 둔다
+  const skip = t => !(t instanceof Element) || t.closest('button, a, input, textarea, select, label, [contenteditable], [data-go], [data-id], .days')
+    || ['m', 'k'].some(k => blur[k] && t.closest(BLUR_SEL[k]));
+  view.addEventListener('touchstart', e => {
+    start = e.touches.length === 1 && !skip(e.target) ? {x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now()} : null;
+    if (!start) last = null;
+  }, {passive: true});
+  view.addEventListener('touchcancel', () => { start = last = null; }, {passive: true});
+  view.addEventListener('touchend', e => {
+    const p = e.changedTouches[0];
+    if (!start || !p || e.touches.length) { last = null; return; }
+    const tap = {x: p.clientX, y: p.clientY, t: Date.now()};
+    const isTap = Math.hypot(tap.x - start.x, tap.y - start.y) < TAP_MOVE && tap.t - start.t < 400;   // 스와이프·길게 누르기 제외
+    start = null;
+    if (!isTap) { last = null; return; }
+    if (last && tap.t - last.t < TAP_MS && Math.hypot(tap.x - last.x, tap.y - last.y) < TAP_MOVE * 2) {
+      last = null;
+      const memo = document.getElementById('memo');
+      if (!memo || memo.disabled) return;                        // 단어 상세 화면에서만
+      e.preventDefault();                                        // 두 번째 탭의 확대·클릭 방지
+      const sel = getSelection && getSelection(); if (sel) sel.removeAllRanges();
+      if (memo.classList.contains('primary')) { memo.click(); show('覚えた ✓'); }
+      else { const nx = document.getElementById('next'); if (nx && !nx.disabled) { nx.click(); show('次へ ›'); } else show('覚えた単語です'); }
+      return;
+    }
+    last = tap;
+  }, {passive: false});
 })();
 
 // ---------- boot ----------
