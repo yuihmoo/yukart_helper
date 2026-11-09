@@ -14,9 +14,11 @@
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
 <style>
-:root{--bg:#f6f5f2;--card:#fff;--ink:#1d1f24;--sub:#6b6f78;--line:#e4e2dc;--accent:#c8553d;--accent-weak:#f6e3de;--blue:#3d6fc8;--blue-weak:#e0e9f8;--shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#16181d;--card:#1f2229;--ink:#eceae5;--sub:#9a9ea8;--line:#2e323b;--accent:#e27a5f;--accent-weak:#3a2622;--blue:#7fa3e6;--blue-weak:#1f2a3d;--shadow:none}}
+:root{--bg:#f6f5f2;--card:#fff;--ink:#1d1f24;--sub:#6b6f78;--line:#e4e2dc;--accent:#c8553d;--accent-weak:#f6e3de;--blue:#3d6fc8;--blue-weak:#e0e9f8;--shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05);--on-accent:#fff}
+@media (prefers-color-scheme: dark){:root:not([data-theme]){--bg:#16181d;--card:#1f2229;--ink:#eceae5;--sub:#9a9ea8;--line:#2e323b;--accent:#e27a5f;--accent-weak:#3a2622;--blue:#7fa3e6;--blue-weak:#1f2a3d;--shadow:none}}
 :root[data-theme="dark"]{--bg:#16181d;--card:#1f2229;--ink:#eceae5;--sub:#9a9ea8;--line:#2e323b;--accent:#e27a5f;--accent-weak:#3a2622;--blue:#7fa3e6;--blue-weak:#1f2a3d;--shadow:none}
+/* 중간 톤(ダーク와 ライト 사이) */
+:root[data-theme="dim"]{--bg:#3b3f47;--card:#474c55;--ink:#eef0f3;--sub:#bcc0c8;--line:#575c66;--ok:#7dd6a5;--ok-weak:#3d5549;--ng:#f2a08a;--ng-weak:#5c4840;--chip:#525761;--shadow:0 1px 2px rgba(0,0,0,.15);--on-accent:#22252b;--accent:#f2a08a;--accent-weak:#5c4840;--blue:#a3c0f5;--blue-weak:#46526b;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink)}
 body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Apple SD Gothic Neo","Noto Sans JP","Noto Sans KR",sans-serif;min-height:100vh;
@@ -33,7 +35,7 @@ a.pick:active{transform:scale(.98)}
 .pick.off{opacity:.5;pointer-events:none}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
 .btn{flex:1;padding:12px;border-radius:12px;background:var(--line);font:inherit;font-weight:600;color:inherit;border:0}
-.btn.primary{background:var(--accent);color:#fff}
+.btn.primary{background:var(--accent);color:var(--on-accent)}
 .bkopen{background:none;border:0;color:var(--sub);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;justify-self:center}
 </style>
 </head>
@@ -54,7 +56,7 @@ a.pick:active{transform:scale(.98)}
 </main>
 <script src="shared/backup.js"></script>
 <script>
-try { const t = localStorage.getItem('n2:theme'); if (t) document.documentElement.setAttribute('data-theme', JSON.parse(t)); } catch (e) {}
+try { const t = JSON.parse(localStorage.getItem('n2:theme') || 'null'); if (['light', 'dim', 'dark'].includes(t)) { document.documentElement.setAttribute('data-theme', t); const m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', {light: '#f6f5f2', dim: '#3b3f47', dark: '#16181d'}[t]); } } catch (e) {}
 // ren.html이 아직 배포되지 않았으면 비활성 표시 (오프라인이면 캐시 응답으로 판단)
 fetch('ren.html').then(r => { if (!r.ok) throw 0; }).catch(() => {
   document.getElementById('ren').classList.add('off');

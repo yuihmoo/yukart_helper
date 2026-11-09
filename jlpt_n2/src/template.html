@@ -17,10 +17,10 @@
 :root{
   --bg:#f6f5f2;--card:#ffffff;--ink:#1d1f24;--sub:#6b6f78;--line:#e4e2dc;
   --accent:#c8553d;--accent-weak:#f6e3de;--ok:#2f8f5b;--ok-weak:#dcf1e5;--ng:#c8553d;--ng-weak:#f8e0da;
-  --chip:#efede8;--shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05);
+  --chip:#efede8;--shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05);--on-accent:#fff;
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
+  :root:not([data-theme]){
     --bg:#16181d;--card:#1f2229;--ink:#eceae5;--sub:#9a9ea8;--line:#2e323b;
     --accent:#e27a5f;--accent-weak:#3a2622;--ok:#5cc28a;--ok-weak:#1d3328;--ng:#e27a5f;--ng-weak:#3a2622;
     --chip:#2a2e36;--shadow:none;
@@ -31,6 +31,8 @@
   --accent:#e27a5f;--accent-weak:#3a2622;--ok:#5cc28a;--ok-weak:#1d3328;--ng:#e27a5f;--ng-weak:#3a2622;
   --chip:#2a2e36;--shadow:none;
 }
+/* 중간 톤(ダーク와 ライト 사이) */
+:root[data-theme="dim"]{--bg:#3b3f47;--card:#474c55;--ink:#eef0f3;--sub:#bcc0c8;--line:#575c66;--ok:#7dd6a5;--ok-weak:#3d5549;--ng:#f2a08a;--ng-weak:#5c4840;--chip:#525761;--shadow:0 1px 2px rgba(0,0,0,.15);--on-accent:#22252b;--accent:#f2a08a;--accent-weak:#5c4840;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink)}
 body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Hiragino Sans","Noto Sans KR","Noto Sans JP",sans-serif;
@@ -47,7 +49,7 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 @keyframes swr{from{transform:translateX(-40px);opacity:.4}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.swipe-l,.swipe-r{animation:none}}
 .iconbtn.txt{width:auto;padding:0 10px;font-size:13px;font-weight:600;color:var(--sub);white-space:nowrap}
-.iconbtn.txt.on{background:var(--accent);color:#fff}
+.iconbtn.txt.on{background:var(--accent);color:var(--on-accent)}
 /* 가리기: 뜻·읽기 / 예문 해석 (탭하면 그 항목만 잠깐 보기) */
 .hide-m .detail .reading,.hide-m .detail .mean,.hide-m .rd .use,.hide-m .rd .rchip.hit,.hide-m .rd .rchip:not(.hit) small i,
 .hide-m .row .m,.hide-m .row .w small,
@@ -76,7 +78,7 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 .chk.on{background:var(--ok);border-color:var(--ok);color:#fff}
 .toolbar{display:flex;gap:8px;margin:0 0 10px;flex-wrap:wrap}
 .pill{padding:6px 12px;border-radius:999px;background:var(--chip);font-size:13px}
-.pill.on{background:var(--accent);color:#fff}
+.pill.on{background:var(--accent);color:var(--on-accent)}
 /* detail */
 .detail .head{padding:20px;text-align:center}
 .detail .head .word{font-size:44px;line-height:1.2;word-break:keep-all}
@@ -111,7 +113,7 @@ mark{background:var(--accent-weak);color:inherit;border-radius:4px;padding:0 2px
 .ex .k{color:var(--sub);font-size:14px;margin-top:4px}
 .nav2{display:flex;gap:8px;margin-top:12px}
 .btn{flex:1;padding:14px;border-radius:14px;background:var(--chip);font-weight:600;text-align:center}
-.btn.primary{background:var(--accent);color:#fff}
+.btn.primary{background:var(--accent);color:var(--on-accent)}
 .btn:disabled{opacity:.4}
 .tts{font-size:14px;padding:6px 12px;border-radius:999px;background:var(--chip);margin-top:10px}
 /* quiz */
@@ -365,12 +367,18 @@ const speak = text => TTS.speak(text);
 
 // ---------- theme ----------
 const themeBtn = document.getElementById('themeBtn');
-function applyTheme(t){ if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); }
+const THEMES = ['light', 'dim', 'dark'], THEME_NAME = {light: '라이트', dim: '중간 톤', dark: '다크'}, THEME_BAR = {light: '#f6f5f2', dim: '#3b3f47', dark: '#16181d'};
+function curTheme(){ const t = document.documentElement.getAttribute('data-theme'); return THEMES.includes(t) ? t : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); }
+function applyTheme(t){
+  if (!THEMES.includes(t)) t = null;   // 저장값이 깨졌으면 시스템 설정 따름
+  if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
+  const c = curTheme(), m = document.querySelector('meta[name="theme-color"]'), b = document.getElementById('themeBtn');
+  if (m) m.setAttribute('content', THEME_BAR[c]);
+  if (b) { b.title = THEME_NAME[c]; b.setAttribute('aria-label', '테마: ' + THEME_NAME[c]); }
+}
 applyTheme(themeStore.get());
 themeBtn.onclick = () => {
-  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
-  const cur = document.documentElement.getAttribute('data-theme') || (dark ? 'dark' : 'light');
-  const next = cur === 'dark' ? 'light' : 'dark';
+  const next = THEMES[(THEMES.indexOf(curTheme()) + 1) % THEMES.length];   // 라이트 → 중간 → 다크 순환
   applyTheme(next); themeStore.set(next);
 };
 

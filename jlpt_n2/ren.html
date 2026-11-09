@@ -17,10 +17,10 @@
 :root{
   --bg:#f5f6f8;--card:#fff;--ink:#1d1f24;--sub:#6b6f78;--line:#e2e5ea;
   --accent:#3d6fc8;--accent-weak:#e0e9f8;--ok:#2f8f5b;--ok-weak:#dcf1e5;--ng:#c8553d;--ng-weak:#f8e0da;
-  --chip:#eceff3;--shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05);
+  --chip:#eceff3;--shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05);--on-accent:#fff;
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
+  :root:not([data-theme]){
     --bg:#16181d;--card:#1f2229;--ink:#eceae5;--sub:#9a9ea8;--line:#2e323b;
     --accent:#7fa3e6;--accent-weak:#1f2a3d;--ok:#5cc28a;--ok-weak:#1d3328;--ng:#e27a5f;--ng-weak:#3a2622;
     --chip:#2a2e36;--shadow:none;
@@ -31,6 +31,8 @@
   --accent:#7fa3e6;--accent-weak:#1f2a3d;--ok:#5cc28a;--ok-weak:#1d3328;--ng:#e27a5f;--ng-weak:#3a2622;
   --chip:#2a2e36;--shadow:none;
 }
+/* 중간 톤(ダーク와 ライト 사이) */
+:root[data-theme="dim"]{--bg:#3b3f47;--card:#474c55;--ink:#eef0f3;--sub:#bcc0c8;--line:#575c66;--ok:#7dd6a5;--ok-weak:#3d5549;--ng:#f2a08a;--ng-weak:#5c4840;--chip:#525761;--shadow:0 1px 2px rgba(0,0,0,.15);--on-accent:#22252b;--accent:#a3c0f5;--accent-weak:#46526b;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink)}
 body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Apple SD Gothic Neo","Noto Sans JP","Noto Sans KR",sans-serif;
@@ -44,7 +46,7 @@ header.top{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;ali
 header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .iconbtn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:var(--chip)}
 .iconbtn.txt{width:auto;padding:0 10px;font-size:13px;font-weight:600;color:var(--sub);white-space:nowrap}
-.iconbtn.txt.on{background:var(--accent);color:#fff}
+.iconbtn.txt.on{background:var(--accent);color:var(--on-accent)}
 /* 隠す: 意味（漢字含む）/ 例文の訳 — タップするとその項目だけ表示 */
 .hide-m .head .mean,.hide-m .head .kj,.hide-m .hjsec > :not(h3),.hide-m .row .m,.hide-m .row .hjtag,
 .hide-k .ex .k,.hide-k .gx .k{filter:blur(7px);cursor:pointer;user-select:none;transition:filter .15s}
@@ -80,7 +82,7 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 .chk.on{background:var(--ok);border-color:var(--ok);color:#fff}
 .toolbar{display:flex;gap:8px;margin:0 0 10px;flex-wrap:wrap}
 .pill{padding:6px 12px;border-radius:999px;background:var(--chip);font-size:13px}
-.pill.on{background:var(--accent);color:#fff}
+.pill.on{background:var(--accent);color:var(--on-accent)}
 .head{padding:20px;text-align:center}
 .head .word{font-size:44px;line-height:1.25;word-break:keep-all}
 .head .word .hit{color:var(--accent)}
@@ -101,7 +103,7 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 mark{background:var(--accent-weak);color:inherit;border-radius:4px;padding:0 2px}
 .nav2{display:flex;gap:8px;margin-top:12px}
 .btn{flex:1;padding:14px;border-radius:14px;background:var(--chip);font-weight:600;text-align:center}
-.btn.primary{background:var(--accent);color:#fff}
+.btn.primary{background:var(--accent);color:var(--on-accent)}
 .btn:disabled{opacity:.4}
 .tts{font-size:14px;padding:6px 12px;border-radius:999px;background:var(--chip);margin-top:10px}
 .qtop{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--sub)}
@@ -555,12 +557,18 @@ const TTS = makeTTS({lang: 'ko-KR', store, T: {loading:'音声リストを読み
 const speak = text => TTS.speak(text);
 
 // ---------- theme (첫 화면·よん과 공유) ----------
-function applyTheme(t){ if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); }
-try { const t = localStorage.getItem('n2:theme'); if (t) applyTheme(JSON.parse(t)); } catch(e) {}
+const THEMES = ['light', 'dim', 'dark'], THEME_NAME = {light: 'ライト', dim: 'グレー', dark: 'ダーク'}, THEME_BAR = {light: '#f5f6f8', dim: '#3b3f47', dark: '#16181d'};
+function curTheme(){ const t = document.documentElement.getAttribute('data-theme'); return THEMES.includes(t) ? t : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); }
+function applyTheme(t){
+  if (!THEMES.includes(t)) t = null;   // 저장값이 깨졌으면 시스템 설정 따름
+  if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
+  const c = curTheme(), m = document.querySelector('meta[name="theme-color"]'), b = document.getElementById('themeBtn');
+  if (m) m.setAttribute('content', THEME_BAR[c]);
+  if (b) { b.title = THEME_NAME[c]; b.setAttribute('aria-label', 'テーマ: ' + THEME_NAME[c]); }
+}
+try { const t = localStorage.getItem('n2:theme'); applyTheme(t ? JSON.parse(t) : null); } catch(e) { applyTheme(null); }
 document.getElementById('themeBtn').onclick = () => {
-  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
-  const cur = document.documentElement.getAttribute('data-theme') || (dark ? 'dark' : 'light');
-  const next = cur === 'dark' ? 'light' : 'dark';
+  const next = THEMES[(THEMES.indexOf(curTheme()) + 1) % THEMES.length];   // 라이트 → 중간 → 다크 순환
   applyTheme(next); try { localStorage.setItem('n2:theme', JSON.stringify(next)); } catch(e) {}
 };
 
