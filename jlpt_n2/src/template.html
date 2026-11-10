@@ -116,6 +116,13 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 .ex .s{font-size:19px;line-height:1.7}
 mark{background:var(--accent-weak);color:inherit;border-radius:4px;padding:0 2px}
 .ex .k{color:var(--sub);font-size:14px;margin-top:4px}
+.exm{margin-top:14px;border-top:1px solid var(--line)}
+.exm .xi{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:12px 0;border-bottom:1px solid var(--line)}
+.exm .xi:last-child{border-bottom:0;padding-bottom:0}
+.exm .xt{grid-column:1/-1;justify-self:start;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-weak);border-radius:6px;padding:1px 7px}
+.exm .s{font-size:17px;line-height:1.6}
+.exm .k{grid-column:1}
+.exm .xtts{grid-row:2/4;grid-column:2;align-self:center;width:36px;height:36px;border-radius:10px;background:var(--chip);font-size:15px}
 .nav2{display:flex;gap:8px;margin-top:12px}
 .btn{flex:1;padding:14px;border-radius:14px;background:var(--chip);font-weight:600;text-align:center}
 .btn.primary{background:var(--accent);color:var(--on-accent)}
@@ -202,6 +209,12 @@ for (const line of RAW_KANJI.split('\n')) {
   if (!line || line[0]==='#') continue;
   const [c, hun, parts, type, origin] = line.split('|');
   if (c) KANJI[c] = {hun, parts, type, origin};
+}
+const EXM = {};   // 추가 예문(문형별): 단어 → [{t, s, k}]
+for (const line of RAW_EXM.split('\n')) {
+  if (!line || line[0] === '#') continue;
+  const [w, t, s, k] = line.split('|');
+  if (w && s) (EXM[w] = EXM[w] || []).push({t: t || '', s, k: k || ''});
 }
 const EX = {};
 for (const line of RAW_EX.split('\n')) {
@@ -588,6 +601,7 @@ function Detail(id, ids){
   setHeader(BOOK[w.day-1] ? BOOK[w.day-1].label : '', true);
   const pos = ids ? ids.indexOf(id) : -1;
   const ex = EX[w.w];
+  const exm = ex ? (EXM[w.w] || []) : [];
   const ks = uniqKanji(w.w);
   view.innerHTML = `
     <div class="detail">
@@ -613,7 +627,10 @@ function Detail(id, ids){
       ${ex ? `<div class="card sec ex"><h3>예문</h3>
         <div class="s jp">${highlight(ex.s, w.w)}</div>
         <div class="k">${esc(ex.k)}</div>
-        <button class="tts" id="ttsEx">🔊 예문 듣기</button></div>` : ''}
+        <button class="tts" id="ttsEx">🔊 예문 듣기</button>
+        ${exm.length ? `<div class="exm">${exm.map((x, i) => `<div class="xi"><span class="xt">${esc(x.t)}</span>
+          <div class="s jp">${highlight(x.s, w.w)}</div><div class="k">${esc(x.k)}</div>
+          <button class="xtts" data-x="${i}" aria-label="예문 ${i + 2} 듣기">🔊</button></div>`).join('')}</div>` : ''}</div>` : ''}
       <div class="nav2">
         <button class="btn" id="prev" ${pos <= 0 ? 'disabled' : ''}>‹ 이전</button>
         <button class="btn ${memorized.has(id)?'':'primary'}" id="memo">${memorized.has(id) ? '암기 취소' : '외웠어요 ✓'}</button>
@@ -623,6 +640,7 @@ function Detail(id, ids){
   document.getElementById('tts').onclick = () => speak(w.r);
   view.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(Detail, [+b.dataset.go, null]));
   const te = document.getElementById('ttsEx'); if (te) te.onclick = () => speak(ex.s);
+  view.querySelectorAll('.xtts').forEach(b => b.onclick = () => { const x = exm[+b.dataset.x]; if (x) speak(x.s); });
   document.getElementById('prev').onclick = () => { if (pos > 0) go(Detail, [ids[pos-1], ids], true); };
   document.getElementById('next').onclick = () => { if (pos >= 0 && pos < ids.length-1) go(Detail, [ids[pos+1], ids], true); };
   document.getElementById('memo').onclick = () => {
