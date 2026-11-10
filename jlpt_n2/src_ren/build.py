@@ -20,6 +20,20 @@ for ln in (SRC / 'examples.txt').read_text(encoding='utf-8').splitlines():
         sys.exit(f'examples.txt 중복 번호: {p[0]}')
     examples[int(p[0])] = [p[1], p[2]]
 
+# ---- 추가 예문(文型別): 번호|태그|예문|訳 — 1단어 여러 줄 ----
+exmore = {}
+_exm_path = SRC / 'examples_more.txt'
+for ln in (_exm_path.read_text(encoding='utf-8').splitlines() if _exm_path.exists() else []):
+    if not ln.strip() or ln.startswith('#'):
+        continue
+    p = ln.split('|')
+    if len(p) != 4 or not p[0].isdigit() or not all(x.strip() for x in p):
+        sys.exit(f'examples_more.txt 형식 오류: {ln}')
+    rows = exmore.setdefault(int(p[0]), [])
+    if p[2] in [r[1] for r in rows] or (int(p[0]) in examples and examples[int(p[0])][0] == p[2]):
+        sys.exit(f'examples_more.txt 중복 예문: {ln}')
+    rows.append([p[1], p[2], p[3]])
+
 # ---- 어휘 검사: 번호 연속, 빈 값 없음 ----
 nums = [v['n'] for v in vocab]
 if nums != list(range(1, len(vocab) + 1)):
@@ -57,12 +71,15 @@ for g in gram:
 
 js = lambda o: json.dumps(o, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
 missing_ex = [v['n'] for v in vocab if v['n'] not in examples]
+_unknown = sorted(set(exmore) - {v['n'] for v in vocab})
+if _unknown:
+    sys.exit(f'examples_more.txt: 없는 번호 {_unknown[:20]}')
 if missing_ex:
     sys.exit(f'예문 누락: {missing_ex[:20]} … ({len(missing_ex)}개)')
 # 자주 쓰는 단어(freq.py 결과) — 없으면 별표 없이 빌드
 _fp = SRC / 'freq.json'
 freq = json.loads(_fp.read_text(encoding='utf-8')) if _fp.exists() else {'meta': None, 'words': {}}
-data = f'const FREQ = {js(freq)};\n' + f'const VOCAB = {js(vocab)};\nconst HANJA = {js(hanja)};\nconst GRAM = {js(out_g)};\nconst EXAMPLES = {js(examples)};'
+data = f'const FREQ = {js(freq)};\n' + f'const VOCAB = {js(vocab)};\nconst HANJA = {js(hanja)};\nconst GRAM = {js(out_g)};\nconst EXAMPLES = {js(examples)};\nconst EXMORE = {js(exmore)};'
 html = (SRC / 'template.html').read_text(encoding='utf-8').replace('/*__DATA__*/', data, 1)
 html = html.replace('/*__VOICE__*/', (SRC.parent / 'shared' / 'voice.js').read_text(encoding='utf-8'), 1)
 html = html.replace('/*__BACKUP__*/', (SRC.parent / 'shared' / 'backup.js').read_text(encoding='utf-8'), 1)

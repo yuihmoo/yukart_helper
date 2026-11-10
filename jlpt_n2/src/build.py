@@ -52,6 +52,17 @@ for ln in lines('examples.txt'):
         sys.exit(f'examples.txt 형식 오류: {ln}')
     emap[p[0]] = p
 
+# 추가 예문(문형별): 단어|태그|예문|해석 — 단어당 여러 줄
+exm = {}
+for ln in lines('examples_more.txt'):
+    p = ln.split('|')
+    if len(p) != 4 or not all(x.strip() for x in p):
+        sys.exit(f'examples_more.txt 형식 오류: {ln}')
+    exm.setdefault(p[0], []).append(p)
+for w, rows in exm.items():
+    if len({r[2] for r in rows}) != len(rows) or (w in emap and emap[w][1] in {r[2] for r in rows}):
+        sys.exit(f'examples_more.txt 중복 예문: {w}')
+
 # 숙자훈·오쿠리가나 생략 등 규칙으로 정렬되지 않는 단어: 한자별 읽기 수동 지정 (키가 ''이면 '특수 읽기')
 OVERRIDES = json.loads((SRC / 'overrides.json').read_text(encoding='utf-8'))
 
@@ -113,10 +124,15 @@ def build(out, words, gram, conf):
     kanji_sub = '\n'.join('|'.join(kmap[c]) for c in kmap if c in used)
     read_sub = '\n'.join(ln for ln in lines('readings.txt') if ln.split('|')[0] in used)
     ex_sub = '\n'.join('|'.join(emap[w['w']]) for w in words if w['w'] in emap)
+    seen_w = []
+    for w in words:
+        if w['w'] in exm and w['w'] not in seen_w: seen_w.append(w['w'])
+    exm_sub = '\n'.join('|'.join(r) for x in seen_w for r in exm[x])
     data = (f'const CONF = {js(conf)};\n'
             f'const WORDS_JSON = {js(words)};\n'
             f'const RAW_KANJI = {js(kanji_sub)};\n'
             f'const RAW_EX = {js(ex_sub)};\n'
+            f'const RAW_EXM = {js(exm_sub)};\n'
             f'const GRAM_JSON = {js(gram)};\n'
             f'const PRED = {js(PRED)};\n'
             f'const RAW_READ = {js(read_sub)};')
@@ -132,6 +148,11 @@ _pp = SRC / 'main' / 'predict.json'
 PRED = json.loads(_pp.read_text(encoding='utf-8')) if _pp.exists() else {'meta': None, 'words': {}}
 
 # ---------- main: 필수 단어·문형 ----------
+_all_w = {x['w'] for x in json.loads((SRC / 'main' / 'words.json').read_text(encoding='utf-8'))} | \
+         {x['w'] for x in json.loads((SRC / 'words.json').read_text(encoding='utf-8'))}
+_unknown = sorted(set(exm) - _all_w)
+if _unknown:
+    sys.exit(f'examples_more.txt: 단어장에 없는 단어 {_unknown[:20]}')
 main_words = json.loads((SRC / 'main' / 'words.json').read_text(encoding='utf-8'))
 for w in main_words:
     if not w['w'] or not w['r'] or not w['m'] or not (1 <= w['day'] <= 25):
