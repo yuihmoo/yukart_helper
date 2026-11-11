@@ -207,7 +207,7 @@ GDAYS.forEach((d, i) => d.forEach(g => g.day = i + 1));
 /*__VOICE__*/
 /*__BACKUP__*/
 const BK = makeBackup({esc, T: BACKUP_T.ja});
-const TTS = makeTTS({lang: 'ko-KR', store, T: {loading:'音声リストを読み込み中…', speed:'速さ', voices:'この端末の韓国語音声', selected:'使用中', tryIt:'試聴', none:'韓国語の音声が見つかりません。', novelty:'効果音声', sample:'오늘도 한국어 공부 열심히 해요.', howTitle:'より良い音声を入れる (iPhone)', how:'設定 › アクセシビリティ › 読み上げコンテンツ › 声 › 韓国語 で <b>Yuna</b> などの <b>拡張/プレミアム</b> 音声をダウンロードし、この画面を開き直して一覧に出たら選んでください。<br>iOSのバージョンによってはWebアプリに高品質音声が表示されない場合があります。'}});
+const TTS = makeTTS({lang: 'ko-KR', store, T: {loading:'音声リストを読み込み中…', speed:'速さ', voices:'この端末の韓国語音声', selected:'使用中', tryIt:'試聴', none:'韓国語の音声が見つかりません。', novelty:'効果音声', sample:'오늘도 한국어 공부 열심히 해요.', howTitle:'より良い音声を入れる (iPhone)', how:'設定 › アクセシビリティ › 読み上げコンテンツ › 声 › 韓国語 で <b>Yuna</b> などの <b>拡張/プレミアム</b> 音声をダウンロードし、この画面を開き直して一覧に出たら選んでください。<br>iOSのバージョンによってはWebアプリに高品質音声が表示されない場合があります。<br><b>Siriの声</b>はiOSがWebに公開している場合のみ一覧に表示され、表示されれば自動で優先されます。アップデート直後は一覧の読み込みが遅れることがあるので<b>再読み込み</b>を押してください。', reload:'再読み込み', allLang:'全言語', onlyLang:'韓国語のみ', diag:'この端末でWebに公開されている音声: 全{n}件', missing:'保存した音声が見つからないため別の音声で再生します。下から選び直してください。', unsupported:'このブラウザは読み上げに対応していません。'}});
 const speak = text => TTS.speak(text);
 
 // ---------- theme (첫 화면·よん과 공유) ----------
