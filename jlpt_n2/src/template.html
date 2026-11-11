@@ -380,7 +380,7 @@ function meaningChoices(word){
 /*__VOICE__*/
 /*__BACKUP__*/
 const BK = makeBackup({esc, T: BACKUP_T.ko});
-const TTS = makeTTS({lang: 'ja-JP', store, T: {loading:'음성 목록을 불러오는 중…', speed:'속도', voices:'이 기기의 일본어 음성', selected:'사용 중', tryIt:'듣기', none:'일본어 음성을 찾지 못했습니다.', novelty:'효과음성', sample:'今日も日本語の勉強を頑張りましょう。', howTitle:'더 좋은 음성 받기 (iPhone)', how:'설정 › 손쉬운 사용 › 읽기 및 말하기 › 음성 › 일본어 에서 <b>Kyoko</b>·<b>O-ren</b>의 <b>향상된 음성/프리미엄</b>을 내려받은 뒤, 이 화면을 다시 열어 목록에 나타나면 선택하세요.<br>iOS 버전에 따라 웹앱에 고품질 음성이 표시되지 않을 수 있습니다.'}});
+const TTS = makeTTS({lang: 'ja-JP', store, T: {loading:'음성 목록을 불러오는 중…', speed:'속도', voices:'이 기기의 일본어 음성', selected:'사용 중', tryIt:'듣기', none:'일본어 음성을 찾지 못했습니다.', novelty:'효과음성', sample:'今日も日本語の勉強を頑張りましょう。', howTitle:'더 좋은 음성 받기 (iPhone)', how:'설정 › 손쉬운 사용 › 읽기 및 말하기 › 음성 › 일본어 에서 <b>Kyoko</b>·<b>O-ren</b>의 <b>향상된 음성/프리미엄</b>을 내려받은 뒤, 이 화면을 다시 열어 목록에 나타나면 선택하세요.<br>iOS 버전에 따라 웹앱에 고품질 음성이 표시되지 않을 수 있습니다.<br><b>Siri 음성</b>은 iOS가 웹에 공개할 때만 목록에 나타나며, 나타나면 자동으로 우선 선택됩니다. 업데이트 직후엔 목록이 늦게 채워질 수 있으니 <b>다시 불러오기</b>를 눌러 보세요.', reload:'다시 불러오기', allLang:'모든 언어', onlyLang:'일본어만', diag:'이 기기에서 웹에 공개된 음성: 전체 {n}개', missing:'저장해 둔 음성을 찾지 못해 다른 음성으로 재생합니다. 아래에서 다시 골라 주세요.', unsupported:'이 브라우저는 음성 읽기를 지원하지 않습니다.'}});
 const speak = text => TTS.speak(text);
 
 // ---------- theme ----------
