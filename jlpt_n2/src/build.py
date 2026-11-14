@@ -115,6 +115,35 @@ def check_grammar(gram):
     return gram
 
 
+# 문형 추가 예문: 세트|문형|예문([정답])|해석  (세트 = main / gichul)
+GMORE = {'main': {}, 'gichul': {}}
+_gm = SRC / 'grammar_more.txt'
+if _gm.exists():
+    for ln in lines('grammar_more.txt'):
+        p = ln.split('|')
+        if len(p) != 4 or not all(x.strip() for x in p) or p[0] not in GMORE:
+            sys.exit(f'grammar_more.txt 형식 오류: {ln}')
+        if len(re.findall(r'\[[^\]]+\]', p[2])) != 1:
+            sys.exit(f'grammar_more.txt 빈칸은 정확히 1개: {ln}')
+        GMORE[p[0]].setdefault(p[1], []).append({'s': p[2], 'k': p[3]})
+
+
+def merge_more(gram, kind):
+    pats = {g['p'] for g in gram}
+    unknown = sorted(set(GMORE[kind]) - pats)
+    if unknown:
+        sys.exit(f'grammar_more.txt: {kind}에 없는 문형 {unknown[:10]}')
+    for g in gram:
+        add = GMORE[kind].get(g['p'], [])
+        seen = {e['s'] for e in g['ex']}
+        for e in add:
+            if e['s'] in seen:
+                sys.exit(f'grammar_more.txt 중복 예문: {g["p"]} / {e["s"]}')
+            seen.add(e['s'])
+        g['ex'] = g['ex'] + add
+    return gram
+
+
 def js(o):
     return json.dumps(o, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
 
@@ -158,11 +187,11 @@ for w in main_words:
     if not w['w'] or not w['r'] or not w['m'] or not (1 <= w['day'] <= 25):
         sys.exit(f'main/words.json 항목 오류: {w}')
     w['years'] = w.pop('yrs')
-main_gram = check_grammar(json.loads((SRC / 'main' / 'grammar.json').read_text(encoding='utf-8')))
+main_gram = check_grammar(merge_more(json.loads((SRC / 'main' / 'grammar.json').read_text(encoding='utf-8')), 'main'))
 build('yon.html', prepare_words(main_words, True), main_gram, {
     'set': 'main', 'prefix': 'n2m:', 'title': 'N2 필수 단어', 'back': './index.html', 'other': './yon-gichul.html'})
 
 # ---------- gichul: 최신 기출 ----------
 gichul_words = json.loads((SRC / 'words.json').read_text(encoding='utf-8'))
-build('yon-gichul.html', prepare_words(gichul_words, True), check_grammar(grammar_from_txt()), {
+build('yon-gichul.html', prepare_words(gichul_words, True), check_grammar(merge_more(grammar_from_txt(), 'gichul')), {
     'set': 'gichul', 'prefix': 'n2:', 'title': 'N2 최신 기출', 'back': './yon.html', 'other': './yon.html'})
