@@ -990,7 +990,8 @@ function Book(day){
 
 function highlight(sentence, word){
   // 활용형 대응: 기본형 → する/だ 제거 → 끝 가나 제거 → 앞쪽 한자 순서로 문장 속 위치를 찾음
-  const stem = word.replace(/だ$/, '');
+  // 2글자 이하(まだ 등)는 だ가 어미가 아니므로 떼지 않음
+  const stem = word.length > 2 ? word.replace(/だ$/, '') : word;
   const cands = [stem, word.replace(/する$/, ''), word.length > 2 ? word.slice(0, -1) : '', (word.match(/^[^぀-ゟ]+/) || [''])[0]];
   const key = cands.find(k => k && sentence.includes(k));
   if (!key) return esc(sentence);
