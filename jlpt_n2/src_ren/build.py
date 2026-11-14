@@ -69,6 +69,28 @@ for g in gram:
         sys.exit(f'예문 불일치 {g["n"]}:\n  원문: {g["ex"]}\n  빈칸: {s}')
     out_g.append({**g, 's': s, 'a': re.search(r'\[([^\]]+)\]', s).group(1), 'g': grp})
 
+# ---- 문법 추가 예문: No.|예문([정답])|日本語訳 ----
+gmore = {}
+_gm = SRC / 'grammar_more.txt'
+if _gm.exists():
+    for ln in _gm.read_text(encoding='utf-8').splitlines():
+        if not ln.strip() or ln.startswith('#'):
+            continue
+        p = ln.split('|')
+        if len(p) != 3 or not p[0].strip().isdigit() or not p[1].strip() or not p[2].strip():
+            sys.exit(f'grammar_more.txt 형식 오류: {ln}')
+        if len(re.findall(r'\[[^\]]+\]', p[1])) != 1:
+            sys.exit(f'grammar_more.txt 빈칸은 정확히 1개: {ln}')
+        gmore.setdefault(int(p[0]), []).append({'s': p[1], 'k': p[2]})
+_gn = {g['n'] for g in out_g}
+if set(gmore) - _gn:
+    sys.exit(f'grammar_more.txt: 없는 번호 {sorted(set(gmore) - _gn)[:20]}')
+for g in out_g:
+    ex = [{'s': g['s'], 'k': g['exja']}] + gmore.get(g['n'], [])
+    if len({e['s'] for e in ex}) != len(ex):
+        sys.exit(f'grammar_more.txt 중복 예문: {g["n"]}')
+    g['ex'] = ex
+
 js = lambda o: json.dumps(o, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
 missing_ex = [v['n'] for v in vocab if v['n'] not in examples]
 _unknown = sorted(set(exmore) - {v['n'] for v in vocab})

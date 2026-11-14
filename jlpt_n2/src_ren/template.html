@@ -199,7 +199,9 @@ WORDS.forEach(w => (w.hj || []).forEach(([syl, k], pos) => (BY_HANJA[k] = BY_HAN
 const isVerb = w => /다$/.test(w.ko);
 const jaKeys = s => s.split(/[、,，]/).map(t => t.trim()).filter(Boolean);
 
-const GRAMMAR = GRAM.map((g, i) => ({id: i, n: g.n, p: g.p, m: g.ja, s: g.s, a: g.a, k: g.exja, g: g.g}));
+// ex: [{s:'…[정답]…', k:日本語訳}] — 첫 번째가 원문 예문. 빈칸 없는 항목은 제외(방어)
+const GRAMMAR = GRAM.map((g, i) => { const ex = (g.ex && g.ex.length ? g.ex : [{s: g.s, k: g.exja}]).filter(e => /\[[^\]]+\]/.test(e.s)); return {id: i, n: g.n, p: g.p, m: g.ja, s: g.s, a: g.a, k: g.exja, g: g.g, ex: ex.length ? ex : [{s: g.s, k: g.exja}]}; });
+const gAns = s => (/\[([^\]]+)\]/.exec(s) || [, ''])[1];
 const GDAYS = chunk(GRAMMAR, G_PER_DAY);
 GDAYS.forEach((d, i) => d.forEach(g => g.day = i + 1));
 
@@ -586,8 +588,8 @@ function GBook(day){
     <div class="list">${GDAYS[day-1].map(g => `
       <button class="card grow" data-id="${g.id}">
         <div class="gp"><span class="ko">${esc(g.p)}</span><span class="gm">${esc(g.m)}</span></div>
-        ${gOpen === g.id ? `<div class="gx"><div class="ko s">${gMarked(g.s)}</div><div class="k">${esc(g.k)}</div>
-          <div class="meta">No.${g.n} · ${esc(srsLabel('g' + g.id))}</div></div>` : ''}
+        ${gOpen === g.id ? g.ex.map((e, j) => `<div class="gx"><div class="ko s">${gMarked(e.s)}</div><div class="k">${esc(e.k)}</div></div>`).join('') + `
+          <div class="gx"><div class="meta">No.${g.n} · ${esc(srsLabel('g' + g.id))}</div></div>` : ''}
       </button>`).join('')}</div>`;
   const on = view.querySelector('.days .on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
   view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { gOpen = null; go(GBook, [+b.dataset.d], true); });
@@ -598,41 +600,43 @@ function GBook(day){
   document.getElementById('gq').onclick = () => go(GQuiz, [GDAYS[day-1], `文法 Day ${day}`, day]);
   document.getElementById('gall').onclick = () => go(GQuiz, [shuffle(GRAMMAR).slice(0, 20), '文法ランダム', null]);
 }
-function grammarChoices(g){
-  const cands = shuffle(GRAMMAR.filter(x => x.id !== g.id && x.a !== g.a && !(g.g && x.g === g.g)));
-  cands.sort((x, y) => Math.abs(x.a.length - g.a.length) - Math.abs(y.a.length - g.a.length));
+function grammarChoices(g, ans){
+  ans = ans || g.a;
+  const cands = shuffle(GRAMMAR.filter(x => x.id !== g.id && x.a !== g.a && x.a !== ans && !(g.g && x.g === g.g)));
+  cands.sort((x, y) => Math.abs(x.a.length - ans.length) - Math.abs(y.a.length - ans.length));
   const picked = [];
   for (const c of shuffle(cands.slice(0, 12))) { if (picked.length >= 3) break; if (!picked.includes(c.a)) picked.push(c.a); }
-  return shuffle([g.a, ...picked]);
+  return shuffle([ans, ...picked]);
 }
 function GQuiz(list, title, gday){
   const qs = shuffle(list);
   let idx = 0, score = 0, locked = false; const wrong = [];
   setHeader(title);
   function draw(){
-    const g = qs[idx], opts = grammarChoices(g); locked = false;
-    const m = /\[([^\]]+)\]/.exec(g.s);
-    const sent = esc(g.s.slice(0, m.index)) + '<span class="blank">　？　</span>' + esc(g.s.slice(m.index + m[0].length));
+    const g = qs[idx], e = (g.ex && g.ex[Math.floor(Math.random() * g.ex.length)]) || {s: g.s, k: g.k};
+    const ans = gAns(e.s) || g.a, opts = grammarChoices(g, ans); locked = false;
+    const m = /\[([^\]]+)\]/.exec(e.s);
+    const sent = esc(e.s.slice(0, m.index)) + '<span class="blank">　？　</span>' + esc(e.s.slice(m.index + m[0].length));
     view.innerHTML = `
       <div class="qtop"><span>${idx+1} / ${qs.length}</span><div class="bar"><i style="width:${idx/qs.length*100}%"></i></div><span>正解 ${score}</span></div>
       <div class="card qcard"><div class="step">空欄に入るものは？</div><div class="ko gsent">${sent}</div>
         <button class="tts" id="hint" style="margin-top:12px">ヒント（日本語訳）</button></div>
       <div class="choices">${opts.map((o, i) => `<button class="choice ko" data-i="${i}">${esc(o)}</button>`).join('')}</div>
       <div id="fb"></div>`;
-    document.getElementById('hint').onclick = e => { e.target.outerHTML = `<div style="color:var(--sub);font-size:14px;margin-top:8px;text-align:left">${esc(g.k)}</div>`; };
+    document.getElementById('hint').onclick = e => { e.target.outerHTML = `<div style="color:var(--sub);font-size:14px;margin-top:8px;text-align:left">${esc(e.k)}</div>`; };
     view.querySelectorAll('.choice').forEach(b => b.onclick = () => {
       if (locked) return; locked = true;
-      const ok = opts[+b.dataset.i] === g.a;
-      view.querySelectorAll('.choice').forEach((x, i) => { if (opts[i] === g.a) x.classList.add('ok'); });
+      const ok = opts[+b.dataset.i] === ans;
+      view.querySelectorAll('.choice').forEach((x, i) => { if (opts[i] === ans) x.classList.add('ok'); });
       if (!ok) b.classList.add('ng');
-      if (ok) score++; else wrong.push(g);
+      if (ok) score++; else wrong.push({...g, s: e.s, k: e.k});
       srsGrade('g' + g.id, ok);
       document.getElementById('fb').innerHTML = `
         <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 正解' : '❌ 不正解'} — <b class="ko">${esc(g.p)}</b> : ${esc(g.m)}
-          <div class="ko" style="margin-top:6px">${gMarked(g.s)}</div><div style="color:var(--sub);font-size:13px">${esc(g.k)}</div></div>
+          <div class="ko" style="margin-top:6px">${gMarked(e.s)}</div><div style="color:var(--sub);font-size:13px">${esc(e.k)}</div></div>
         <div class="nav2"><button class="btn primary" id="nx">${idx < qs.length-1 ? '次へ ›' : '結果'}</button></div>`;
       document.getElementById('nx').onclick = next;
-      speak(gFull(g.s));
+      speak(gFull(e.s));
     });
   }
   function next(){
@@ -647,7 +651,7 @@ function GQuiz(list, title, gday){
         <div class="card grow"><div class="gp"><span class="ko">${esc(g.p)}</span><span class="gm">${esc(g.m)}</span></div>
           <div class="gx"><div class="ko s">${gMarked(g.s)}</div><div class="k">${esc(g.k)}</div></div></div>`).join('')}</div>` : ''}
       <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">間違いだけもう一度</button>` : ''}<button class="btn" id="again">最初から</button></div>`;
-    const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(GQuiz, [wrong.slice(), title + '（再挑戦）', null], true);
+    const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(GQuiz, [wrong.map(w => GRAMMAR[w.id]), title + '（再挑戦）', null], true);
     document.getElementById('again').onclick = () => go(GQuiz, [list, title, gday], true);
   }
   draw();
