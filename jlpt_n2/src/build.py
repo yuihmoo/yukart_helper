@@ -179,8 +179,12 @@ def build(out, words, gram, conf):
         if len(p) != 2 or not p[0].split():
             sys.exit(f'similar.txt 형식 오류: {ln}')
         cs = [c for c in dict.fromkeys(p[0].split()) if c in used and c in kmap]
-        if len(cs) >= 2:
-            sim.append({'c': cs, 'tip': p[1].strip()})
+        if len(cs) < 2 or any(set(cs) <= set(g['c']) for g in sim):   # 이미 있는 묶음에 다 들어 있으면 생략
+            continue
+        tip = p[1].strip()
+        if not tip:   # 팁이 비어 있으면 각 한자의 훈음·구성으로 자동 생성
+            tip = ' / '.join(f'{c} {kmap[c][1]}: {kmap[c][2]}' for c in cs)
+        sim.append({'c': cs, 'tip': tip})
     data = (f'const SIM = {js(sim)};\n'
             f'const CONF = {js(conf)};\n'
             f'const WORDS_JSON = {js(words)};\n'
