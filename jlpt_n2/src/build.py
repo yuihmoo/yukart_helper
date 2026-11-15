@@ -27,6 +27,21 @@ for ln in lines('kanji.txt'):
     if p[0] in kmap:
         sys.exit(f'kanji.txt 중복: {p[0]}')
     kmap[p[0]] = p
+# 기억법: 字|기억법 — 유래와 별도로, 생활 장면·아는 한국어 한자어로 외우는 한 줄 (kmap 6번째 칸)
+_mm = SRC / 'kanji_memo.txt'
+if _mm.exists():
+    for ln in lines('kanji_memo.txt'):
+        p = ln.split('|', 1)
+        if len(p) != 2 or not p[1].strip() or '|' in p[1]:
+            sys.exit(f'kanji_memo.txt 형식 오류: {ln}')
+        if p[0] not in kmap:
+            sys.exit(f'kanji_memo.txt: kanji.txt에 없는 한자 {p[0]}')
+        if len(kmap[p[0]]) > 5:
+            sys.exit(f'kanji_memo.txt 중복: {p[0]}')
+        kmap[p[0]] = kmap[p[0]] + [p[1].strip()]
+    _nomemo = [c for c in kmap if len(kmap[c]) < 6]
+    if _nomemo:
+        sys.exit(f'kanji_memo.txt 누락: {"".join(_nomemo[:30])} ({len(_nomemo)}자)')
 
 read_raw = (SRC / 'readings.txt').read_text(encoding='utf-8')
 RD = {}

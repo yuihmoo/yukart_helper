@@ -113,6 +113,7 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 .rchip.hit{background:var(--accent);border-color:var(--accent)}
 .rchip.hit b,.rchip.hit small,.rchip.hit .oku{color:#fff}
 .rchip.link{cursor:pointer}
+.memo{margin-top:6px;padding:8px 10px;border-radius:10px;background:var(--line);color:var(--fg,inherit)}
 .ex .s{font-size:19px;line-height:1.7}
 mark{background:var(--accent-weak);color:inherit;border-radius:4px;padding:0 2px}
 .ex .k{color:var(--sub);font-size:14px;margin-top:4px}
@@ -207,8 +208,8 @@ const IS_MAIN = CONF.set === 'main';
 const KANJI = {};
 for (const line of RAW_KANJI.split('\n')) {
   if (!line || line[0]==='#') continue;
-  const [c, hun, parts, type, origin] = line.split('|');
-  if (c) KANJI[c] = {hun, parts, type, origin};
+  const [c, hun, parts, type, origin, memo] = line.split('|');
+  if (c) KANJI[c] = {hun, parts, type, origin, memo: memo || ''};
 }
 const EXM = {};   // 추가 예문(문형별): 단어 → [{t, s, k}]
 for (const line of RAW_EXM.split('\n')) {
@@ -617,13 +618,14 @@ function Detail(id, ids){
         ${w.pred ? `<div class="pred t${w.pred.tier}">${STAR(w.pred.tier)} 2026년 12월 출제 예상 <small>${esc(w.pred.why)}</small></div>` : ''}
         <button class="tts" id="tts">🔊 발음 듣기</button>
       </div>
-      <div class="card sec"><h3>한자 분해 · 유래</h3>
+      <div class="card sec"><h3>한자 분해 · 유래 · 기억법</h3>
         ${ks.length ? '' : `<p class="o" style="margin:0;color:var(--sub)">${/[\u30a0-\u30ff]/.test(w.w) ? '가타카나 외래어' : '가나로만 쓰는 단어'}라 한자 분해는 없습니다. 뜻과 예문으로 외워 주세요.</p>`}
         ${ks.map(c => { const k = KANJI[c]; return k ? `
           <div class="kj"><div class="c jp">${c}</div><div>
             <div class="h">${esc(k.hun)}<span class="t">${esc(k.type)}</span></div>
             <div class="p">구성: ${esc(k.parts)}</div>
             <div class="o">${esc(k.origin)}</div>
+            ${k.memo ? `<div class="o memo">💡 ${esc(k.memo)}</div>` : ''}
             ${readingBlock(c, w)}</div></div>` :
           `<div class="kj"><div class="c jp">${c}</div><div class="o">자료 없음</div></div>`; }).join('')}
       </div>
