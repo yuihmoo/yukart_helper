@@ -500,6 +500,7 @@ function Home(){
       <button class="card" id="mBook"><div class="big jp">暗</div><div><h2>단어 암기장</h2><p>${IS_MAIN ? `${BOOK[0].label}~${BOOK[BOOK.length-1].label} · ` : ''}부수 분해 · 유래${IS_MAIN ? ' · 음훈' : ' · 예문'}</p></div></button>
       <button class="card" id="mQuiz"><div class="big jp">試</div><div><h2>${IS_MAIN ? '일차별 퀴즈' : 'Day별 퀴즈'}</h2><p>한자 → 읽기(히라가나) + 뜻</p></div></button>
       <button class="card" id="mGram"><div class="big jp">文</div><div><h2>${IS_MAIN ? '필수 문형' : '기출 문형'}</h2><p>${IS_MAIN ? `${gdays[0]}~${gdays[gdays.length-1]} · ` : ''}문형 목록 · 빈칸 채우기 퀴즈 (${GRAMMAR.length}개)</p></div></button>
+      ${SIM.length ? `<button class="card" id="mSim"><div class="big jp">似</div><div><h2>비슷한 한자</h2><p>모양이 닮은 한자 ${SIM.length}묶음 · 구별 퀴즈</p></div></button>` : ''}
       <button class="card" id="mWrong"><div class="big jp">誤</div><div><h2>오답 복습</h2><p>틀린 단어만 다시 풀기 (${wrongSet.size}개)</p></div></button>
       ${IS_MAIN ? `<button class="card" id="mOther"><div class="big jp">過</div><div><h2>최신 기출 어휘·문형</h2><p>2021~2026 기출 · 별도 학습 기록</p></div></button>` : ''}
       <button class="card" id="mVoice"><div class="big jp">音</div><div><h2>음성 설정</h2><p>발음 음성·속도 선택</p></div></button>
@@ -517,6 +518,7 @@ function Home(){
   document.getElementById('mBook').onclick = () => go(Book, [store.get('bookDay', 1)]);
   document.getElementById('mQuiz').onclick = () => go(QuizMenu);
   document.getElementById('mVoice').onclick = () => go(VoiceSettings);
+  const ms = document.getElementById('mSim'); if (ms) ms.onclick = () => go(SimList);
   document.getElementById('mBackup').onclick = () => go(BackupScreen);
   BK.banner(document.getElementById('bkBanner'), () => go(BackupScreen));
   const mo = document.getElementById('mOther'); if (mo) mo.onclick = () => { location.href = CONF.other; };
@@ -891,6 +893,84 @@ function GQuiz(list, title, gday){
       <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">처음부터</button></div>`;
     const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(GQuiz, [wrong.map(w => GRAMMAR[w.id]), title + ' (재도전)', null], true);
     document.getElementById('again').onclick = () => go(GQuiz, [list, title, gday], true);
+  }
+  draw();
+}
+
+// ---------- 비슷한 한자 ----------
+// 한자 → 그 한자가 들어간 대표 단어(첫 등장)
+const SIM_WORD = {};
+for (const w of WORDS) for (const c of w.w) if (!SIM_WORD[c]) SIM_WORD[c] = w;
+let simOpen = null;
+function SimList(){
+  setHeader('비슷한 한자', true);
+  const sw = new Set(store.get('simWrong', []));
+  const sb = store.get('simBest', null);
+  view.innerHTML = `
+    <div class="nav2" style="margin:0 0 10px"><button class="btn primary" id="sq">랜덤 퀴즈 20</button>
+      <button class="btn" id="sw" ${sw.size ? '' : 'disabled'}>틀린 것만 (${sw.size})</button></div>
+    ${sb ? `<p class="note" style="margin:0 0 8px">최근 최고 ${sb.score} / ${sb.total}</p>` : ''}
+    <div class="list">${SIM.map((g, i) => `
+      <button class="card grow" data-i="${i}">
+        <div class="jp" style="font-size:34px;letter-spacing:10px">${g.c.map(esc).join(' ')}</div>
+        <div style="font-size:13px;color:var(--sub);margin-top:4px">${g.c.map(c => esc((KANJI[c] || {}).hun || '')).join(' · ')}</div>
+        ${simOpen === i ? `<div class="gx" style="margin-top:8px">${g.c.map(c => { const w = SIM_WORD[c]; return `<div style="margin:4px 0"><b class="jp" style="font-size:20px">${esc(c)}</b> ${esc((KANJI[c] || {}).hun || '')}${w ? ` — <span class="jp">${esc(w.w)}</span>(${esc(w.r)}) ${esc(w.m)}` : ''}</div>`; }).join('')}
+          <div class="k" style="margin-top:6px">💡 ${esc(g.tip)}</div></div>` : ''}
+      </button>`).join('')}</div>`;
+  view.querySelectorAll('.grow').forEach(b => b.onclick = () => { const i = +b.dataset.i; simOpen = simOpen === i ? null : i; SimList(); });
+  document.getElementById('sq').onclick = () => go(SimQuiz, [simItems().slice(0, 20), '비슷한 한자 퀴즈']);
+  document.getElementById('sw').onclick = () => { const l = simItems().filter(q => sw.has(q.c)); if (l.length) go(SimQuiz, [l, '비슷한 한자 (틀린 것)']); };
+}
+// 문제 단위: 그룹 안의 한자 하나 (보기 = 같은 그룹의 한자)
+function simItems(){
+  const out = [];
+  SIM.forEach((g, gi) => g.c.forEach(c => out.push({c, gi})));
+  return shuffle(out);
+}
+function SimQuiz(list, title){
+  const qs = list.slice(); let idx = 0, score = 0, locked = false; const wrong = [];
+  setHeader(title, true);
+  if (!qs.length) { view.innerHTML = '<p class="note">문제가 없습니다.</p>'; return; }
+  function draw(){
+    const q = qs[idx], g = SIM[q.gi], k = KANJI[q.c] || {}, w = SIM_WORD[q.c];
+    const opts = shuffle(g.c.slice(0, 6).includes(q.c) ? g.c.slice(0, 6) : [q.c, ...g.c.filter(c => c !== q.c).slice(0, 5)]);
+    locked = false;
+    const blankW = w ? esc(w.w).split(esc(q.c)).join('<span class="blank">　□　</span>') : '';
+    view.innerHTML = `
+      <div class="qtop"><span>${idx+1} / ${qs.length}</span><div class="bar"><i style="width:${idx/qs.length*100}%"></i></div><span>정답 ${score}</span></div>
+      <div class="card qcard"><div class="step">□에 들어갈 한자는?</div>
+        ${w ? `<div class="jp gsent" style="text-align:center;font-size:30px">${blankW}</div>
+        <div style="color:var(--sub);margin-top:6px"><span class="jp">${esc(w.r)}</span> · ${esc(w.m)}</div>` : ''}
+        <div style="margin-top:8px">뜻: <b>${esc(k.hun || '')}</b></div></div>
+      <div class="choices" style="grid-template-columns:repeat(${Math.min(opts.length, 3)},1fr)">${opts.map((o, i) => `<button class="choice jp" data-i="${i}" style="text-align:center;font-size:34px">${esc(o)}</button>`).join('')}</div>
+      <div id="fb"></div>`;
+    view.querySelectorAll('.choice').forEach(b => b.onclick = () => {
+      if (locked) return; locked = true;
+      const ok = opts[+b.dataset.i] === q.c;
+      view.querySelectorAll('.choice').forEach((x, i) => { if (opts[i] === q.c) x.classList.add('ok'); });
+      if (!ok) b.classList.add('ng');
+      const sw = new Set(store.get('simWrong', []));
+      if (ok) { score++; sw.delete(q.c); } else { wrong.push(q); sw.add(q.c); }
+      store.set('simWrong', [...sw]);
+      document.getElementById('fb').innerHTML = `
+        <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 정답' : '❌ 오답'} — ${g.c.map(c => `<b class="jp">${esc(c)}</b> ${esc((KANJI[c] || {}).hun || '')}`).join(' · ')}
+          <div style="margin-top:6px;font-size:14px">💡 ${esc(g.tip)}</div></div>
+        <div class="nav2"><button class="btn primary" id="nx">${idx < qs.length-1 ? '다음 ›' : '결과 보기'}</button></div>`;
+      document.getElementById('nx').onclick = next;
+    });
+  }
+  function next(){
+    idx++;
+    if (idx < qs.length) { draw(); window.scrollTo(0, 0); return; }
+    const sb = store.get('simBest', null); if (!sb || score > sb.score || qs.length !== sb.total) store.set('simBest', {score, total: qs.length});
+    view.innerHTML = `
+      <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
+        <div class="score">${score} / ${qs.length}</div>
+        <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 ${wrong.length}자는 '틀린 것만'에서 다시 풀 수 있음`}</div></div>
+      ${wrong.length ? `<h2 class="sub">틀린 한자</h2><div class="list">${wrong.map(q => `<div class="card grow"><div class="jp" style="font-size:26px">${SIM[q.gi].c.map(esc).join(' ')}</div><div class="k">💡 ${esc(SIM[q.gi].tip)}</div></div>`).join('')}</div>` : ''}
+      <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">새 문제</button></div>`;
+    const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(SimQuiz, [shuffle(wrong), title + ' (재도전)'], true);
+    document.getElementById('again').onclick = () => go(SimQuiz, [simItems().slice(0, 20), '비슷한 한자 퀴즈'], true);
   }
   draw();
 }

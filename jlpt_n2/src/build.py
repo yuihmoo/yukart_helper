@@ -157,7 +157,17 @@ def build(out, words, gram, conf):
     for w in words:
         if w['w'] in exm and w['w'] not in seen_w: seen_w.append(w['w'])
     exm_sub = '\n'.join('|'.join(r) for x in seen_w for r in exm[x])
-    data = (f'const CONF = {js(conf)};\n'
+    # 비슷한 모양 한자 그룹: 이 세트에 나오는 한자만, 2자 이상 남는 그룹만
+    sim = []
+    for ln in lines('similar.txt'):
+        p = ln.split('|')
+        if len(p) != 2 or not p[0].split():
+            sys.exit(f'similar.txt 형식 오류: {ln}')
+        cs = [c for c in dict.fromkeys(p[0].split()) if c in used and c in kmap]
+        if len(cs) >= 2:
+            sim.append({'c': cs, 'tip': p[1].strip()})
+    data = (f'const SIM = {js(sim)};\n'
+            f'const CONF = {js(conf)};\n'
             f'const WORDS_JSON = {js(words)};\n'
             f'const RAW_KANJI = {js(kanji_sub)};\n'
             f'const RAW_EX = {js(ex_sub)};\n'
@@ -169,7 +179,7 @@ def build(out, words, gram, conf):
     html = html.replace('/*__VOICE__*/', (ROOT / 'shared' / 'voice.js').read_text(encoding='utf-8'), 1)
     html = html.replace('/*__BACKUP__*/', (ROOT / 'shared' / 'backup.js').read_text(encoding='utf-8'), 1)
     (ROOT / out).write_text(html, encoding='utf-8')
-    print(f'OK: {out} ({len(html)//1024} KB, 단어 {len(words)}, 한자 {len(used)}, 문형 {len(gram)})')
+    print(f'OK: {out} ({len(html)//1024} KB, 단어 {len(words)}, 한자 {len(used)}, 문형 {len(gram)}, 비슷한 한자 {len(sim)}그룹)')
 
 
 # 출제 예상(predict.py 결과) — 없으면 표시하지 않음
