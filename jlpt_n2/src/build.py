@@ -185,7 +185,23 @@ def build(out, words, gram, conf):
         if not tip:   # 팁이 비어 있으면 각 한자의 훈음·구성으로 자동 생성
             tip = ' / '.join(f'{c} {kmap[c][1]}: {kmap[c][2]}' for c in cs)
         sim.append({'c': cs, 'tip': tip})
-    data = (f'const SIM = {js(sim)};\n'
+    # 뜻이 비슷한 한자 묶음: 이 세트에 나오는 한자 항목만, 2개 이상 남는 묶음만 (검증: tools/check_meaning.py)
+    mean, cur = [], None
+    for ln in lines('meaning.txt'):
+        if ln.startswith('@'):
+            q = ln[1:].split('|')
+            if len(q) != 3:
+                sys.exit(f'meaning.txt 묶음 형식 오류: {ln}')
+            cur = {'t': q[0].strip(), 'm': q[1].strip(), 'tip': q[2].strip(), 'items': []}
+            mean.append(cur); continue
+        q = ln.split('|')
+        if cur is None or len(q) != 6 or q[3].count('[') != 1 or f'[{q[0]}]' not in q[3]:
+            sys.exit(f'meaning.txt 항목 형식 오류: {ln}')
+        if q[0] in used and q[0] in kmap:
+            cur['items'].append({'c': q[0], 'u': q[1], 'w': q[2], 's': q[3], 'k': q[4], 'r': q[5]})
+    mean = [g for g in mean if len(g['items']) >= 2]
+    data = (f'const MEAN = {js(mean)};\n'
+            f'const SIM = {js(sim)};\n'
             f'const CONF = {js(conf)};\n'
             f'const WORDS_JSON = {js(words)};\n'
             f'const RAW_KANJI = {js(kanji_sub)};\n'
@@ -198,12 +214,28 @@ def build(out, words, gram, conf):
     html = html.replace('/*__VOICE__*/', (ROOT / 'shared' / 'voice.js').read_text(encoding='utf-8'), 1)
     html = html.replace('/*__BACKUP__*/', (ROOT / 'shared' / 'backup.js').read_text(encoding='utf-8'), 1)
     (ROOT / out).write_text(html, encoding='utf-8')
-    print(f'OK: {out} ({len(html)//1024} KB, 단어 {len(words)}, 한자 {len(used)}, 문형 {len(gram)}, 비슷한 한자 {len(sim)}그룹)')
+    print(f'OK: {out} ({len(html)//1024} KB, 단어 {len(words)}, 한자 {len(used)}, 문형 {len(gram)}, 비슷한 한자 {len(sim)}그룹, 뜻 비슷한 한자 {len(mean)}묶음)')
 
 
 # 출제 예상(predict.py 결과) — 없으면 표시하지 않음
 _pp = SRC / 'main' / 'predict.json'
 PRED = json.loads(_pp.read_text(encoding='utf-8')) if _pp.exists() else {'meta': None, 'words': {}}
+
+# 뜻이 비슷한 한자 예문 일본어 검증: SudachiPy가 있는 파이썬이 있으면 실행, 오류면 빌드 중단
+import shutil, subprocess
+for _py in [sys.executable, 'python3.13', 'python3']:
+    _exe = shutil.which(_py) or (_py if pathlib.Path(_py).exists() else None)
+    if not _exe:
+        continue
+    if subprocess.run([_exe, '-c', 'import sudachipy, sudachidict_core'], capture_output=True).returncode != 0:
+        continue
+    _r = subprocess.run([_exe, str(ROOT / 'tools' / 'check_meaning.py')], capture_output=True, text=True)
+    print(_r.stdout.strip().splitlines()[0] if _r.stdout.strip() else _r.stderr.strip())
+    if _r.returncode != 0:
+        sys.exit('meaning.txt 일본어 검증 실패:\n' + _r.stdout)
+    break
+else:
+    print('경고: SudachiPy가 없어 meaning.txt 일본어 검증을 건너뜀 (pip install sudachipy sudachidict_core)')
 
 # ---------- main: 필수 단어·문형 ----------
 _all_w = {x['w'] for x in json.loads((SRC / 'main' / 'words.json').read_text(encoding='utf-8'))} | \
