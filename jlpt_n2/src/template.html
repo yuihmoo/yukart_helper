@@ -79,7 +79,7 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 .row .w small{display:block;font-size:13px;color:var(--sub);font-family:inherit}
 .row .m{font-size:13px;color:var(--sub);text-align:right;max-width:45%}
 .row.done{opacity:.55}
-.grow.gdone .gp{opacity:.55}.ghead{display:flex;align-items:center;gap:10px;min-width:0}
+.row .gw{font-size:18px;word-break:keep-all}.detail .head .gword{font-size:30px}
 .chk{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);flex:0 0 auto;display:grid;place-items:center;font-size:13px}
 .chk.on{background:var(--ok);border-color:var(--ok);color:#fff}
 .toolbar{display:flex;gap:8px;margin:0 0 10px;flex-wrap:wrap}
@@ -836,46 +836,62 @@ function GBook(day){
   const list = all.filter(g => gFilter === 'all' || (gFilter === 'todo' ? !gMemo.has(g.p) : gMemo.has(g.p)));
   const doneN = all.filter(g => gMemo.has(g.p)).length;
   view.innerHTML = `
-    <div class="days">${GDAYS.map((d, i) => `<button class="${i+1===day?'on':''}" data-d="${i+1}">${esc(d.label)}${gb[i+1] ? ` · ${gb[i+1].score}/${gb[i+1].total}` : ''}</button>`).join('')}</div>
+    <div class="days">${GDAYS.map((d, i) => `<button class="${i+1===day?'on':''}" data-d="${i+1}">${esc(d.label || ('Day ' + (i+1)))}${gb[i+1] ? ` · ${gb[i+1].score}/${gb[i+1].total}` : ''}</button>`).join('')}</div>
     <div class="toolbar">
       <button class="pill ${gFilter==='all'?'on':''}" data-f="all">전체 ${all.length}</button>
       <button class="pill ${gFilter==='todo'?'on':''}" data-f="todo">미암기 ${all.length - doneN}</button>
       <button class="pill ${gFilter==='done'?'on':''}" data-f="done">암기 완료 ${doneN}</button>
     </div>
-    <div class="nav2" style="margin:0 0 10px"><button class="btn primary" id="gq">${esc(GDAYS[day-1].label)} 문형 퀴즈</button><button class="btn" id="gall">전체 랜덤 20</button></div>
     <div class="list">${list.map((g, i, arr) => `${IS_MAIN && g.g && (i === 0 || arr[i-1].g !== g.g) ? `<h2 class="sub cat">${esc(g.g)}</h2>` : ''}
-      <div class="card grow ${gMemo.has(g.p) ? 'gdone' : ''}" data-id="${g.id}" role="button" tabindex="0">
-        <div class="gp"><span class="ghead"><button class="chk ${gMemo.has(g.p)?'on':''}" data-gchk="${g.id}" aria-label="암기 체크">${gMemo.has(g.p)?'✓':''}</button><span class="jp">${esc(g.p)}</span></span><span class="gm">${esc(g.m)}</span></div>
-        ${gOpen === g.id ? g.ex.map((e, j) => `<div class="gx gxp"><div><div class="jp s">${gMarked(e.s)}</div><div class="k">${esc(e.k)}</div></div><span class="gtts" role="button" tabindex="0" data-g="${g.id}" data-j="${j}" aria-label="예문 ${j + 1} 듣기">🔊</span></div>`).join('') + `
-          <div class="gx meta">${g.years.length ? `기출 ${esc(g.years.join(', '))} · ` : ''}${gMemo.has(g.p) ? '암기 완료 · ' : ''}${esc(srsLabel('g' + g.id))}</div>
-          <div class="nav2" style="margin-top:8px"><button class="btn ${gMemo.has(g.p) ? '' : 'primary'}" data-gmemo="${g.id}">${gMemo.has(g.p) ? '암기 취소' : '외웠어요 ✓'}</button></div>` : ''}
-      </div>`).join('') || '<p class="note">해당하는 문형이 없습니다.</p>'}</div>`;
+      <div class="card row grow2 ${gMemo.has(g.p)?'done':''}" data-id="${g.id}">
+        <button class="chk ${gMemo.has(g.p)?'on':''}" data-chk="${g.id}" aria-label="암기 체크">${gMemo.has(g.p)?'✓':''}</button>
+        <div class="w jp gw">${esc(g.p)}</div>
+        <div class="m">${esc(g.m)}</div>
+      </div>`).join('') || '<p class="note">해당하는 문형이 없습니다.</p>'}</div>
+    <div class="nav2 qparts"><button class="btn primary" id="gq">${`${esc(GDAYS[day-1].label)} 문형 퀴즈`}</button><button class="btn" id="gall">전체 랜덤 20</button></div>`;
   const on = view.querySelector('.days .on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
-  view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { gOpen = null; go(GBook, [+b.dataset.d], true); });
-  view.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { gFilter = b.dataset.f; gOpen = null; GBook(day); });
-  const toggle = id => { const g = GRAMMAR[id]; if (!g) return; gMemo.has(g.p) ? gMemo.delete(g.p) : gMemo.add(g.p); saveGMemo(); };
-  view.querySelectorAll('.grow').forEach(b => {
-    const open = () => { const id = +b.dataset.id; gOpen = gOpen === id ? null : id; GBook(day); };
-    b.onclick = e => {
-      const c = e.target.closest('[data-gchk]');
-      if (c) { e.stopPropagation(); toggle(+c.dataset.gchk); GBook(day); return; }
-      const m = e.target.closest('[data-gmemo]');
-      if (m) {
-        e.stopPropagation(); const id = +m.dataset.gmemo; toggle(id);
-        // 외웠으면 목록에서 다음 미암기 문형을 펼침 (단어장 '외웠어요 → 다음'과 같은 흐름)
-        if (gMemo.has(GRAMMAR[id].p)) { const k = list.findIndex(x => x.id === id); const nx = list.slice(k + 1).find(x => !gMemo.has(x.p)); gOpen = nx ? nx.id : null; }
-        GBook(day);
-        const el = gOpen !== null && view.querySelector(`.grow[data-id="${gOpen}"]`); if (el) el.scrollIntoView({block: 'start', behavior: 'smooth'});
-        return;
-      }
-      if (e.target.closest('.gtts')) return;
-      open();
-    };
-    b.onkeydown = e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === b) { e.preventDefault(); open(); } };
+  view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => go(GBook, [+b.dataset.d], true));
+  view.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { gFilter = b.dataset.f; GBook(day); });
+  view.querySelectorAll('.row[data-id]').forEach(r => r.onclick = e => {
+    const id = +r.dataset.id, g = GRAMMAR[id]; if (!g) return;
+    if (e.target.closest('[data-chk]')) { gMemo.has(g.p) ? gMemo.delete(g.p) : gMemo.add(g.p); saveGMemo(); GBook(day); return; }
+    go(GDetail, [id, list.map(x => x.id)]);
   });
-  gttsBind();
   document.getElementById('gq').onclick = () => go(GQuiz, [GDAYS[day-1], `문형 ${GDAYS[day-1].label}`, day]);
   document.getElementById('gall').onclick = () => go(GQuiz, [shuffle(GRAMMAR).slice(0, 20), '문형 랜덤', null]);
+}
+
+// 문형 상세: 단어 상세와 같은 흐름 (‹ 이전 / 외웠어요 / 다음 ›, ←/→/Enter/1, 스와이프)
+function GDetail(id, ids){
+  const g = GRAMMAR[id]; if (!g) { back(); return; }
+  setHeader(GDAYS[g.gday-1] ? GDAYS[g.gday-1].label : '', true);
+  const pos = ids ? ids.indexOf(id) : -1;
+  const done = gMemo.has(g.p);
+  view.innerHTML = `
+    <div class="detail">
+      <div class="card head">
+        <div class="word jp gword">${esc(g.p)}</div>
+        <div class="mean">${esc(g.m)}</div>
+        <div class="yrs">${`${IS_MAIN && g.g ? esc(g.g) + ' · ' : ''}${g.years.length ? `기출 ${esc(g.years.join(', '))} · ` : ''}${gMemo.has(g.p) ? '암기 완료 · ' : ''}${esc(srsLabel('g' + g.id))}`}</div>
+        <button class="tts" id="tts">🔊 첫 예문 듣기</button>
+      </div>
+      <div class="card sec ex"><h3>예문</h3>
+        ${g.ex.map((e, j) => `<div class="gx gxp"><div><div class="jp s">${gMarked(e.s)}</div><div class="k">${esc(e.k)}</div></div><span class="gtts" role="button" tabindex="0" data-g="${g.id}" data-j="${j}" aria-label="예문 ${j + 1}">🔊</span></div>`).join('')}
+      </div>
+      <div class="nav2">
+        <button class="btn" id="prev" ${pos <= 0 ? 'disabled' : ''}>‹ 이전</button>
+        <button class="btn ${done ? '' : 'primary'}" id="memo">${done ? '암기 취소' : '외웠어요 ✓'}</button>
+        <button class="btn" id="next" ${pos < 0 || pos >= ids.length-1 ? 'disabled' : ''}>다음 ›</button>
+      </div>
+    </div>`;
+  document.getElementById('tts').onclick = () => { const e = g.ex[0]; if (e) speak(gFull(e.s)); };
+  gttsBind();
+  document.getElementById('prev').onclick = () => { if (pos > 0) go(GDetail, [ids[pos-1], ids], true); };
+  document.getElementById('next').onclick = () => { if (pos >= 0 && pos < ids.length-1) go(GDetail, [ids[pos+1], ids], true); };
+  document.getElementById('memo').onclick = () => {
+    gMemo.has(g.p) ? gMemo.delete(g.p) : gMemo.add(g.p); saveGMemo();
+    if (gMemo.has(g.p) && pos >= 0 && pos < ids.length-1) go(GDetail, [ids[pos+1], ids], true); else GDetail(id, ids);
+  };
 }
 
 // 오답 보기: 같은 유사 그룹·같은 정답 문자열 제외, 정답과 길이가 비슷한 것 우선

@@ -78,7 +78,7 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 .row .w{font-size:20px;min-width:0;flex:1}
 .row .m{font-size:13px;color:var(--sub);text-align:right;max-width:50%}
 .row.done{opacity:.55}
-.grow.gdone .gp{opacity:.55}.ghead{display:flex;align-items:center;gap:10px;min-width:0}
+.row .gw{font-size:18px;word-break:keep-all}.detail .head .gword{font-size:30px}
 .hjtag{font-size:12px;color:var(--accent);margin-left:6px}
 .pstar{font-size:12px;margin-left:6px;vertical-align:4px;color:var(--accent);font-family:inherit;letter-spacing:-1px}
 .pstar.t1{opacity:.7}
@@ -1020,53 +1020,70 @@ function gttsBind(){
   });
 }
 function GBook(day){
-  day = Math.min(Math.max(1, day|0), GDAYS.length); store.set('gbookDay', day);
-  setHeader('中級文法');
+  day = Math.min(Math.max(1, day|0), GDAYS.length);
+  store.set('gbookDay', day);
+  setHeader('中級文法', true);
   const gb = store.get('gbest', {});
   const all = GDAYS[day-1];
   const list = all.filter(g => gFilter === 'all' || (gFilter === 'todo' ? !gMemo.has(g.n) : gMemo.has(g.n)));
   const doneN = all.filter(g => gMemo.has(g.n)).length;
   view.innerHTML = `
-    <div class="days">${GDAYS.map((d, i) => `<button class="${i+1===day?'on':''}" data-d="${i+1}">Day ${i+1}${gb[i+1] ? ` · ${gb[i+1].score}/${gb[i+1].total}` : ''}</button>`).join('')}</div>
+    <div class="days">${GDAYS.map((d, i) => `<button class="${i+1===day?'on':''}" data-d="${i+1}">${esc(d.label || ('Day ' + (i+1)))}${gb[i+1] ? ` · ${gb[i+1].score}/${gb[i+1].total}` : ''}</button>`).join('')}</div>
     <div class="toolbar">
       <button class="pill ${gFilter==='all'?'on':''}" data-f="all">全部 ${all.length}</button>
       <button class="pill ${gFilter==='todo'?'on':''}" data-f="todo">未暗記 ${all.length - doneN}</button>
       <button class="pill ${gFilter==='done'?'on':''}" data-f="done">覚えた ${doneN}</button>
     </div>
-    <div class="nav2" style="margin:0 0 10px"><button class="btn primary" id="gq">Day ${day} 文法クイズ</button><button class="btn" id="gall">ランダム 20</button></div>
-    <div class="list">${list.map(g => `
-      <div class="card grow ${gMemo.has(g.n) ? 'gdone' : ''}" data-id="${g.id}" role="button" tabindex="0">
-        <div class="gp"><span class="ghead"><button class="chk ${gMemo.has(g.n)?'on':''}" data-gchk="${g.id}" aria-label="暗記チェック">${gMemo.has(g.n)?'✓':''}</button><span class="ko">${esc(g.p)}</span></span><span class="gm">${esc(g.m)}</span></div>
-        ${gOpen === g.id ? g.ex.map((e, j) => `<div class="gx gxp"><div><div class="ko s">${gMarked(e.s)}</div><div class="k">${esc(e.k)}</div></div><span class="gtts" role="button" tabindex="0" data-g="${g.id}" data-j="${j}" aria-label="例文 ${j + 1} を聞く">🔊</span></div>`).join('') + `
-          <div class="gx"><div class="meta">No.${g.n} · ${gMemo.has(g.n) ? '覚えた · ' : ''}${esc(srsLabel('g' + g.id))}</div></div>
-          <div class="nav2" style="margin-top:8px"><button class="btn ${gMemo.has(g.n) ? '' : 'primary'}" data-gmemo="${g.id}">${gMemo.has(g.n) ? '取り消し' : '覚えた ✓'}</button></div>` : ''}
-      </div>`).join('') || '<p class="note">該当する文法がありません。</p>'}</div>`;
+    <div class="list">${list.map((g, i, arr) => `
+      <div class="card row grow2 ${gMemo.has(g.n)?'done':''}" data-id="${g.id}">
+        <button class="chk ${gMemo.has(g.n)?'on':''}" data-chk="${g.id}" aria-label="暗記チェック">${gMemo.has(g.n)?'✓':''}</button>
+        <div class="w ko gw">${esc(g.p)}</div>
+        <div class="m">${esc(g.m)}</div>
+      </div>`).join('') || '<p class="note">該当する文法がありません。</p>'}</div>
+    <div class="nav2 qparts"><button class="btn primary" id="gq">${`Day ${day} 文法クイズ`}</button><button class="btn" id="gall">ランダム 20</button></div>`;
   const on = view.querySelector('.days .on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
-  view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { gOpen = null; go(GBook, [+b.dataset.d], true); });
-  view.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { gFilter = b.dataset.f; gOpen = null; GBook(day); });
-  const toggle = id => { const g = GRAMMAR[id]; if (!g) return; gMemo.has(g.n) ? gMemo.delete(g.n) : gMemo.add(g.n); saveGMemo(); };
-  view.querySelectorAll('.grow').forEach(b => {
-    const open = () => { const id = +b.dataset.id; gOpen = gOpen === id ? null : id; GBook(day); };
-    b.onclick = e => {
-      const c = e.target.closest('[data-gchk]');
-      if (c) { e.stopPropagation(); toggle(+c.dataset.gchk); GBook(day); return; }
-      const m = e.target.closest('[data-gmemo]');
-      if (m) {
-        e.stopPropagation(); const id = +m.dataset.gmemo; toggle(id);
-        // 覚えたら一覧の次の未暗記文法を開く（単語帳と同じ流れ）
-        if (gMemo.has(GRAMMAR[id].n)) { const k = list.findIndex(x => x.id === id); const nx = list.slice(k + 1).find(x => !gMemo.has(x.n)); gOpen = nx ? nx.id : null; }
-        GBook(day);
-        const el = gOpen !== null && view.querySelector(`.grow[data-id="${gOpen}"]`); if (el) el.scrollIntoView({block: 'start', behavior: 'smooth'});
-        return;
-      }
-      if (e.target.closest('.gtts')) return;
-      open();
-    };
-    b.onkeydown = e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === b) { e.preventDefault(); open(); } };
+  view.querySelectorAll('[data-d]').forEach(b => b.onclick = () => go(GBook, [+b.dataset.d], true));
+  view.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { gFilter = b.dataset.f; GBook(day); });
+  view.querySelectorAll('.row[data-id]').forEach(r => r.onclick = e => {
+    const id = +r.dataset.id, g = GRAMMAR[id]; if (!g) return;
+    if (e.target.closest('[data-chk]')) { gMemo.has(g.n) ? gMemo.delete(g.n) : gMemo.add(g.n); saveGMemo(); GBook(day); return; }
+    go(GDetail, [id, list.map(x => x.id)]);
   });
-  gttsBind();
   document.getElementById('gq').onclick = () => go(GQuiz, [GDAYS[day-1], `文法 Day ${day}`, day]);
   document.getElementById('gall').onclick = () => go(GQuiz, [shuffle(GRAMMAR).slice(0, 20), '文法ランダム', null]);
+}
+
+// 문형 상세: 단어 상세와 같은 흐름 (‹ 이전 / 외웠어요 / 다음 ›, ←/→/Enter/1, 스와이프)
+function GDetail(id, ids){
+  const g = GRAMMAR[id]; if (!g) { back(); return; }
+  setHeader('Day ' + (GDAYS.findIndex(d => d.includes(g)) + 1), true);
+  const pos = ids ? ids.indexOf(id) : -1;
+  const done = gMemo.has(g.n);
+  view.innerHTML = `
+    <div class="detail">
+      <div class="card head">
+        <div class="word ko gword">${esc(g.p)}</div>
+        <div class="mean">${esc(g.m)}</div>
+        <div class="yrs">${`No.${g.n} · ${gMemo.has(g.n) ? '覚えた · ' : ''}${esc(srsLabel('g' + g.id))}`}</div>
+        <button class="tts" id="tts">🔊 最初の例文を聞く</button>
+      </div>
+      <div class="card sec ex"><h3>例文</h3>
+        ${g.ex.map((e, j) => `<div class="gx gxp"><div><div class="ko s">${gMarked(e.s)}</div><div class="k">${esc(e.k)}</div></div><span class="gtts" role="button" tabindex="0" data-g="${g.id}" data-j="${j}" aria-label="例文 ${j + 1}">🔊</span></div>`).join('')}
+      </div>
+      <div class="nav2">
+        <button class="btn" id="prev" ${pos <= 0 ? 'disabled' : ''}>‹ 前へ</button>
+        <button class="btn ${done ? '' : 'primary'}" id="memo">${done ? '取り消し' : '覚えた ✓'}</button>
+        <button class="btn" id="next" ${pos < 0 || pos >= ids.length-1 ? 'disabled' : ''}>次へ ›</button>
+      </div>
+    </div>`;
+  document.getElementById('tts').onclick = () => { const e = g.ex[0]; if (e) speak(gFull(e.s)); };
+  gttsBind();
+  document.getElementById('prev').onclick = () => { if (pos > 0) go(GDetail, [ids[pos-1], ids], true); };
+  document.getElementById('next').onclick = () => { if (pos >= 0 && pos < ids.length-1) go(GDetail, [ids[pos+1], ids], true); };
+  document.getElementById('memo').onclick = () => {
+    gMemo.has(g.n) ? gMemo.delete(g.n) : gMemo.add(g.n); saveGMemo();
+    if (gMemo.has(g.n) && pos >= 0 && pos < ids.length-1) go(GDetail, [ids[pos+1], ids], true); else GDetail(id, ids);
+  };
 }
 function grammarChoices(g, ans){
   ans = ans || g.a;
