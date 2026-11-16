@@ -57,7 +57,7 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 .iconbtn.txt.on{background:var(--accent);color:var(--on-accent)}
 /* 가리기: 뜻·읽기 / 예문 해석 (탭하면 그 항목만 잠깐 보기) */
 .hide-m .detail .reading,.hide-m .detail .mean,.hide-m .rd .use,.hide-m .rd .rchip.hit,.hide-m .rd .rchip:not(.hit) small i,
-.hide-m .row .m,.hide-m .row .w small,
+.hide-m .row .m,.hide-m .row .w small,.hide-m .kj .h,
 .hide-k .ex .k,.hide-k .gx .k{filter:blur(7px);cursor:pointer;user-select:none;transition:filter .15s}
 .hide-m .peek,.hide-k .peek{filter:none!important}
 .hidden{display:none!important}
@@ -405,7 +405,7 @@ themeBtn.onclick = () => {
 };
 
 // ---------- 가리기(셀프 테스트) : 상태는 테마처럼 두 세트 공용 ----------
-const BLUR_SEL = {m: '.detail .reading, .detail .mean, .rd .use, .rd .rchip.hit, .rd .rchip:not(.hit) small i, .row .m, .row .w small', k: '.ex .k, .gx .k'};
+const BLUR_SEL = {m: '.detail .reading, .detail .mean, .rd .use, .rd .rchip.hit, .rd .rchip:not(.hit) small i, .row .m, .row .w small, .kj .h', k: '.ex .k, .gx .k'};
 const blurStore = {
   get(){ try{ const v = JSON.parse(localStorage.getItem('n2:blur') || '{}'); return v && typeof v === 'object' ? v : {}; }catch(e){ return {}; } },
   set(v){ try{ localStorage.setItem('n2:blur', JSON.stringify(v)); }catch(e){} }
