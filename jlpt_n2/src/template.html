@@ -128,6 +128,8 @@ mark{background:var(--accent-weak);color:inherit;border-radius:4px;padding:0 2px
 .btn{flex:1;padding:14px;border-radius:14px;background:var(--chip);font-weight:600;text-align:center}
 .btn.primary{background:var(--accent);color:var(--on-accent)}
 .btn:disabled{opacity:.4}
+.gxp{display:flex;gap:10px;align-items:center}.gxp>div{flex:1;min-width:0}
+.gtts{flex:none;width:36px;height:36px;border-radius:10px;background:var(--chip);font-size:15px;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .tts{font-size:14px;padding:6px 12px;border-radius:999px;background:var(--chip);margin-top:10px}
 /* quiz */
 .qtop{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--sub)}
@@ -811,6 +813,14 @@ function Review(){
 const gFull = s => s.replace(/\[([^\]]+)\]/, '$1');
 const gMarked = s => { const m = /\[([^\]]+)\]/.exec(s); return m ? esc(s.slice(0, m.index)) + '<mark>' + esc(m[1]) + '</mark>' + esc(s.slice(m.index + m[0].length)) : esc(s); };
 let gOpen = null;
+// 문형 예문 🔊: 카드(펼침/접힘) 클릭과 분리, 예문별로 재생
+function gttsBind(){
+  view.querySelectorAll('.gtts').forEach(t => {
+    const play = e => { e.stopPropagation(); e.preventDefault(); const g = GRAMMAR[+t.dataset.g], x = g && g.ex[+t.dataset.j]; if (x) speak(gFull(x.s)); };
+    t.onclick = play;
+    t.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') play(e); };
+  });
+}
 function GBook(day){
   day = Math.min(Math.max(1, day|0), GDAYS.length);
   store.set('gbookDay', day);
@@ -822,7 +832,7 @@ function GBook(day){
     <div class="list">${GDAYS[day-1].map((g, i, arr) => `${IS_MAIN && g.g && (i === 0 || arr[i-1].g !== g.g) ? `<h2 class="sub cat">${esc(g.g)}</h2>` : ''}
       <button class="card grow" data-id="${g.id}">
         <div class="gp"><span class="jp">${esc(g.p)}</span><span class="gm">${esc(g.m)}</span></div>
-        ${gOpen === g.id ? g.ex.map(e => `<div class="gx"><div class="jp s">${gMarked(e.s)}</div><div class="k">${esc(e.k)}</div></div>`).join('') + `
+        ${gOpen === g.id ? g.ex.map((e, j) => `<div class="gx gxp"><div><div class="jp s">${gMarked(e.s)}</div><div class="k">${esc(e.k)}</div></div><span class="gtts" role="button" tabindex="0" data-g="${g.id}" data-j="${j}" aria-label="예문 ${j + 1} 듣기">🔊</span></div>`).join('') + `
           <div class="gx meta">${g.years.length ? `기출 ${esc(g.years.join(', '))} · ` : ''}${esc(srsLabel('g' + g.id))}</div>` : ''}
       </button>`).join('')}</div>`;
   const on = view.querySelector('.days .on'); if (on) on.scrollIntoView({inline: 'center', block: 'nearest'});
@@ -831,8 +841,8 @@ function GBook(day){
     const id = +b.dataset.id;
     gOpen = gOpen === id ? null : id;
     GBook(day);
-    if (gOpen !== null) speak(gFull(GRAMMAR[id].s));
   });
+  gttsBind();
   document.getElementById('gq').onclick = () => go(GQuiz, [GDAYS[day-1], `문형 ${GDAYS[day-1].label}`, day]);
   document.getElementById('gall').onclick = () => go(GQuiz, [shuffle(GRAMMAR).slice(0, 20), '문형 랜덤', null]);
 }
