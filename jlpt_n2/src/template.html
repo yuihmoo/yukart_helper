@@ -509,6 +509,7 @@ function Home(){
       <button class="card" id="mBook"><div class="big jp">暗</div><div><h2>단어 암기장</h2><p>${IS_MAIN ? `${BOOK[0].label}~${BOOK[BOOK.length-1].label} · ` : ''}부수 분해 · 유래${IS_MAIN ? ' · 음훈' : ' · 예문'}</p></div></button>
       <button class="card" id="mQuiz"><div class="big jp">試</div><div><h2>${IS_MAIN ? '일차별 퀴즈' : 'Day별 퀴즈'}</h2><p>한자 → 읽기(히라가나) + 뜻</p></div></button>
       <button class="card" id="mGram"><div class="big jp">文</div><div><h2>${IS_MAIN ? '필수 문형' : '기출 문형'}</h2><p>${IS_MAIN ? `${gdays[0]}~${gdays[gdays.length-1]} · ` : ''}암기 ${GRAMMAR.filter(g => gMemo.has(g.p)).length}/${GRAMMAR.length} · 빈칸 채우기 퀴즈</p></div></button>
+      ${MEAN.length ? `<button class="card" id="mMean"><div class="big jp">義</div><div><h2>뜻이 비슷한 한자</h2><p>같은 뜻·같은 읽기 한자 ${MEAN.length}묶음 · 쓰임 구별 예문 · 퀴즈</p></div></button>` : ''}
       ${SIM.length ? `<button class="card" id="mSim"><div class="big jp">似</div><div><h2>비슷한 한자</h2><p>모양이 닮은 한자 ${SIM.length}묶음 · 구별 퀴즈</p></div></button>` : ''}
       <button class="card" id="mWrong"><div class="big jp">誤</div><div><h2>오답 복습</h2><p>틀린 단어만 다시 풀기 (${wrongSet.size}개)</p></div></button>
       ${IS_MAIN ? `<button class="card" id="mOther"><div class="big jp">過</div><div><h2>최신 기출 어휘·문형</h2><p>2021~2026 기출 · 별도 학습 기록</p></div></button>` : ''}
@@ -528,6 +529,7 @@ function Home(){
   document.getElementById('mQuiz').onclick = () => go(QuizMenu);
   document.getElementById('mVoice').onclick = () => go(VoiceSettings);
   const ms = document.getElementById('mSim'); if (ms) ms.onclick = () => go(SimList);
+  const mm = document.getElementById('mMean'); if (mm) mm.onclick = () => go(MeanList);
   document.getElementById('mBackup').onclick = () => go(BackupScreen);
   BK.banner(document.getElementById('bkBanner'), () => go(BackupScreen));
   const mo = document.getElementById('mOther'); if (mo) mo.onclick = () => { location.href = CONF.other; };
@@ -952,6 +954,108 @@ function GQuiz(list, title, gday){
       <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">처음부터</button></div>`;
     const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(GQuiz, [wrong.map(w => GRAMMAR[w.id]), title + ' (재도전)', null], true);
     document.getElementById('again').onclick = () => go(GQuiz, [list, title, gday], true);
+  }
+  draw();
+}
+
+// ---------- 뜻이 비슷한 한자 ----------
+const meanMark = s => { const m = /\[([^\]]+)\]/.exec(s); return m ? esc(s.slice(0, m.index)) + '<mark>' + esc(m[1]) + '</mark>' + esc(s.slice(m.index + m[0].length)) : esc(s); };
+const meanFull = s => s.replace(/\[([^\]]+)\]/, '$1');
+function MeanList(){
+  setHeader('뜻이 비슷한 한자', true);
+  const mw = new Set(store.get('meanWrong', []));
+  view.innerHTML = `
+    <div class="nav2" style="margin:0 0 10px"><button class="btn primary" id="mq">랜덤 퀴즈 20</button>
+      <button class="btn" id="mw" ${mw.size ? '' : 'disabled'}>틀린 것만 (${mw.size})</button></div>
+    <p class="note" style="margin:0 0 8px">같은 뜻·같은 읽기라도 쓰는 상황이 다른 한자들입니다. 눌러서 예문으로 차이를 확인하세요.</p>
+    <div class="list">${MEAN.map((g, i) => `
+      <div class="card row" data-i="${i}">
+        <div class="w jp">${g.items.map(x => esc(x.c)).join(' ')}<small>${esc(g.t)}</small></div>
+        <div class="m">${esc(g.m)}</div>
+      </div>`).join('')}</div>`;
+  view.querySelectorAll('.row[data-i]').forEach(r => r.onclick = () => go(MeanDetail, [+r.dataset.i]));
+  document.getElementById('mq').onclick = () => go(MeanQuiz, [meanItems().slice(0, 20), '뜻이 비슷한 한자 퀴즈']);
+  document.getElementById('mw').onclick = () => { const l = meanItems().filter(q => mw.has(q.gi + ':' + q.c)); if (l.length) go(MeanQuiz, [l, '뜻이 비슷한 한자 (틀린 것)']); };
+}
+function meanItems(){ const out = []; MEAN.forEach((g, gi) => g.items.forEach(x => out.push({gi, c: x.c}))); return shuffle(out); }
+// 묶음 상세: 단어 상세와 같은 흐름 (‹ 이전 / 다음 ›, ←/→, 스와이프, 1 = 첫 예문 듣기)
+function MeanDetail(i){
+  const g = MEAN[i]; if (!g) { back(); return; }
+  setHeader(g.t, true);
+  view.innerHTML = `
+    <div class="detail">
+      <div class="card head">
+        <div class="word jp" style="letter-spacing:8px">${g.items.map(x => esc(x.c)).join(' ')}</div>
+        <div class="reading">${esc(g.t)}</div>
+        <div class="mean">${esc(g.m)}</div>
+        <div class="memo" style="margin-top:10px;text-align:left">💡 ${esc(g.tip)}</div>
+        <button class="tts" id="tts">🔊 첫 예문 듣기</button>
+      </div>
+      ${g.items.map((x, j) => { const k = KANJI[x.c] || {}; return `
+      <div class="card sec">
+        <div class="kj"><div class="c jp">${esc(x.c)}</div><div>
+          <div class="h">${esc(k.hun || '')}</div>
+          <div class="p"><b>${esc(x.u)}</b></div>
+          <div class="o">핵심어: <span class="jp">${esc(x.w)}</span></div></div></div>
+        <div class="gx gxp"><div><div class="jp s">${meanMark(x.s)}</div><div class="k">${esc(x.k)}</div></div><span class="gtts mtts" role="button" tabindex="0" data-j="${j}" aria-label="예문 ${j + 1} 듣기">🔊</span></div>
+        <div class="o" style="margin-top:6px;font-size:14px">관련어: <span class="jp">${esc(x.r.split('・').join(' · '))}</span></div>
+      </div>`; }).join('')}
+      <div class="nav2">
+        <button class="btn" id="prev" ${i <= 0 ? 'disabled' : ''}>‹ 이전</button>
+        <button class="btn primary" id="mqone">퀴즈</button>
+        <button class="btn" id="next" ${i >= MEAN.length - 1 ? 'disabled' : ''}>다음 ›</button>
+      </div>
+    </div>`;
+  document.getElementById('tts').onclick = () => { const x = g.items[0]; if (x) speak(meanFull(x.s)); };
+  view.querySelectorAll('.mtts').forEach(t => { const play = e => { e.preventDefault(); const x = g.items[+t.dataset.j]; if (x) speak(meanFull(x.s)); }; t.onclick = play; t.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') play(e); }; });
+  document.getElementById('prev').onclick = () => { if (i > 0) go(MeanDetail, [i - 1], true); };
+  document.getElementById('next').onclick = () => { if (i < MEAN.length - 1) go(MeanDetail, [i + 1], true); };
+  document.getElementById('mqone').onclick = () => go(MeanQuiz, [shuffle(g.items.map(x => ({gi: i, c: x.c}))), `${g.t} 퀴즈`]);
+}
+// 퀴즈: 예문 속 한자를 □로 가리고 같은 묶음 한자 중에서 고르기
+function MeanQuiz(list, title){
+  const qs = list.slice(); let idx = 0, score = 0, locked = false; const wrong = [];
+  setHeader(title, true);
+  if (!qs.length) { view.innerHTML = '<p class="note">문제가 없습니다.</p>'; return; }
+  function draw(){
+    const q = qs[idx], g = MEAN[q.gi], x = g.items.find(y => y.c === q.c);
+    const opts = shuffle(g.items.map(y => y.c));
+    locked = false;
+    const m = /\[([^\]]+)\]/.exec(x.s);
+    const sent = esc(x.s.slice(0, m.index)) + '<span class="blank">　□　</span>' + esc(x.s.slice(m.index + m[0].length));
+    view.innerHTML = `
+      <div class="qtop"><span>${idx+1} / ${qs.length}</span><div class="bar"><i style="width:${idx/qs.length*100}%"></i></div><span>정답 ${score}</span></div>
+      <div class="card qcard"><div class="step">□에 들어갈 한자는? <small>(${esc(g.t)} · ${esc(g.m)})</small></div>
+        <div class="jp gsent">${sent}</div>
+        <div style="color:var(--sub);margin-top:8px;font-size:14px;text-align:left">${esc(x.k)}</div></div>
+      <div class="choices" style="grid-template-columns:repeat(${Math.min(opts.length, 3)},1fr)">${opts.map((o, i) => `<button class="choice jp" data-i="${i}" style="text-align:center;font-size:34px">${esc(o)}</button>`).join('')}</div>
+      <div id="fb"></div>`;
+    view.querySelectorAll('.choice').forEach(b => b.onclick = () => {
+      if (locked) return; locked = true;
+      const ok = opts[+b.dataset.i] === q.c;
+      view.querySelectorAll('.choice').forEach((y, i) => { if (opts[i] === q.c) y.classList.add('ok'); });
+      if (!ok) b.classList.add('ng');
+      const mw = new Set(store.get('meanWrong', [])), key = q.gi + ':' + q.c;
+      if (ok) { score++; mw.delete(key); } else { wrong.push(q); mw.add(key); }
+      store.set('meanWrong', [...mw]);
+      document.getElementById('fb').innerHTML = `
+        <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 정답' : '❌ 오답'} — <span class="jp">${meanMark(x.s)}</span>
+          <div style="margin-top:6px;font-size:14px">${g.items.map(y => `<b class="jp">${esc(y.c)}</b> ${esc(y.u)}`).join('<br>')}</div></div>
+        <div class="nav2"><button class="btn primary" id="nx">${idx < qs.length-1 ? '다음 ›' : '결과 보기'}</button></div>`;
+      document.getElementById('nx').onclick = next;
+      speak(meanFull(x.s));
+    });
+  }
+  function next(){
+    idx++;
+    if (idx < qs.length) { draw(); window.scrollTo(0, 0); return; }
+    view.innerHTML = `
+      <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
+        <div class="score">${score} / ${qs.length}</div>
+        <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 ${wrong.length}문제는 '틀린 것만'에서 다시 풀 수 있음`}</div></div>
+      <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">새 문제</button></div>`;
+    const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(MeanQuiz, [shuffle(wrong), title + ' (재도전)'], true);
+    document.getElementById('again').onclick = () => go(MeanQuiz, [meanItems().slice(0, 20), '뜻이 비슷한 한자 퀴즈'], true);
   }
   draw();
 }
