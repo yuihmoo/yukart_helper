@@ -155,6 +155,7 @@ h2.sub{font-size:14px;color:var(--sub);margin:18px 0 8px;font-weight:600}
 .gsent{font-size:21px;line-height:1.8;text-align:left}
 .blank{display:inline-block;min-width:3.5em;border-bottom:2px solid var(--accent);color:var(--accent);text-align:center}
 </style>
+<script>/*__THEME__*/</script>
 </head>
 <body>
 <div class="app">
@@ -163,7 +164,7 @@ h2.sub{font-size:14px;color:var(--sub);margin:18px 0 8px;font-weight:600}
     <h1 id="title">TOPIK 韓国語</h1>
     <button class="iconbtn txt" id="blurM" aria-label="意味を隠す" aria-pressed="false">意味</button>
     <button class="iconbtn txt" id="blurK" aria-label="例文の訳を隠す" aria-pressed="false">訳</button>
-    <button class="iconbtn" id="themeBtn" aria-label="テーマ">◐</button>
+    <button class="iconbtn" id="themeBtn" aria-label="テーマを選ぶ">🎨</button>
   </header>
   <main id="view"></main>
 </div>
@@ -215,21 +216,11 @@ const BK = makeBackup({esc, T: BACKUP_T.ja});
 const TTS = makeTTS({lang: 'ko-KR', store, T: {loading:'音声リストを読み込み中…', speed:'速さ', voices:'この端末の韓国語音声', selected:'使用中', tryIt:'試聴', none:'韓国語の音声が見つかりません。', novelty:'効果音声', sample:'오늘도 한국어 공부 열심히 해요.', howTitle:'より良い音声を入れる (iPhone)', how:'設定 › アクセシビリティ › 読み上げコンテンツ › 声 › 韓国語 で <b>Yuna</b> などの <b>拡張/プレミアム</b> 音声をダウンロードし、この画面を開き直して一覧に出たら選んでください。<br>iOSのバージョンによってはWebアプリに高品質音声が表示されない場合があります。<br><b>Siriの声</b>はiOSがWebに公開している場合のみ一覧に表示され、表示されれば自動で優先されます。アップデート直後は一覧の読み込みが遅れることがあるので<b>再読み込み</b>を押してください。', reload:'再読み込み', allLang:'全言語', onlyLang:'韓国語のみ', diag:'この端末でWebに公開されている音声: 全{n}件', missing:'保存した音声が見つからないため別の音声で再生します。下から選び直してください。', unsupported:'このブラウザは読み上げに対応していません。'}});
 const speak = text => TTS.speak(text);
 
-// ---------- theme (첫 화면·よん과 공유) ----------
-const THEMES = ['light', 'dim', 'dark'], THEME_NAME = {light: 'ライト', dim: 'グレー', dark: 'ダーク'}, THEME_BAR = {light: '#f5f6f8', dim: '#3b3f47', dark: '#16181d'};
-function curTheme(){ const t = document.documentElement.getAttribute('data-theme'); return THEMES.includes(t) ? t : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); }
-function applyTheme(t){
-  if (!THEMES.includes(t)) t = null;   // 저장값이 깨졌으면 시스템 설정 따름
-  if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
-  const c = curTheme(), m = document.querySelector('meta[name="theme-color"]'), b = document.getElementById('themeBtn');
-  if (m) m.setAttribute('content', THEME_BAR[c]);
-  if (b) { b.title = THEME_NAME[c]; b.setAttribute('aria-label', 'テーマ: ' + THEME_NAME[c]); }
-}
-try { const t = localStorage.getItem('n2:theme'); applyTheme(t ? JSON.parse(t) : null); } catch(e) { applyTheme(null); }
-document.getElementById('themeBtn').onclick = () => {
-  const next = THEMES[(THEMES.indexOf(curTheme()) + 1) % THEMES.length];   // 라이트 → 중간 → 다크 순환
-  applyTheme(next); try { localStorage.setItem('n2:theme', JSON.stringify(next)); } catch(e) {}
-};
+// ---------- theme: shared/theme.js (첫 화면·よん과 공유) → ボタンでテーマ選択シート ----------
+const themeBtn = document.getElementById('themeBtn');
+const themeLabel = () => { const t = THEME.list.find(x => x.id === THEME.current()); themeBtn.title = 'テーマ: ' + (t ? t.ja : ''); themeBtn.setAttribute('aria-label', themeBtn.title); };
+themeLabel();
+themeBtn.onclick = () => THEME.open('ja', themeLabel);
 
 // ---------- 隠す（セルフテスト）: 状態は ren:blur に保存 ----------
 const BLUR_SEL = {m: '.head .mean, .head .kj, .hjsec > :not(h3), .row .m, .row .hjtag', k: '.ex .k, .gx .k'};
