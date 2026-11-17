@@ -399,20 +399,23 @@ a.pick{animation:anUp .32s cubic-bezier(.2,.8,.2,1) backwards}a.pick+a.pick{anim
   if (window.DECO) return;
   const APP = ((location.pathname.split('/').pop() || 'index.html').replace(/\.html?$/i, '') || 'index');
   const SKEY = 'n2:deco';
-  const DEF = {veil: 0.35, blur: 0, stPos: 'br', stSize: 80, cheer: true};
+  const DEF = {veil: 0.35, blur: 0, stPos: 'br', stSize: 80, cheer: true, bgFit: 'cover', bgZoom: 100, bgPos: 'center'};
+  const FITS = ['cover', 'contain', 'zoom', 'tile'], BPOS = ['center', 'top', 'bottom', 'left', 'right'];
   const T = {
     ko: {t: '내 이미지 꾸미기', close: '닫기', bg: '배경 이미지', veil: '가림 정도 (글자 잘 보이게)', blur: '배경 흐림', st: '스티커 (화면 구석)', size: '크기',
       pos: '위치', br: '오른쪽 아래', bl: '왼쪽 아래', tr: '오른쪽 위', cheer: '정답 축하 이미지', cheerOn: '정답일 때 보여 주기', icons: '메뉴 아이콘',
       pick: '사진 선택', del: '삭제', none: '없음', reset: '꾸미기 전부 지우기', resetQ: '배경·스티커·아이콘 이미지를 모두 지울까요?',
       noMenu: '홈 화면(메뉴가 보이는 화면)에서 열면 메뉴 아이콘을 바꿀 수 있어요.', note: '이미지는 이 기기에만 저장되며 학습 기록 백업 파일에는 포함되지 않습니다.',
       fail: '이미지를 불러오지 못했습니다. 다른 사진으로 시도해 주세요.', big: '파일이 너무 큽니다(30MB 이하).', noDb: '이 브라우저에서는 이미지를 저장할 수 없습니다(개인정보 보호 모드 등).',
-      saving: '저장 중…', test: '미리 보기'},
+      saving: '저장 중…', test: '미리 보기', fit: '크기 맞춤', cover: '화면 꽉 채우기', contain: '전체 보이기', zoom: '직접 크기 조절', tile: '바둑판 반복',
+      zoomL: '크기', bpos: '위치', center: '가운데', top: '위', bottom: '아래', left: '왼쪽', right: '오른쪽'},
     ja: {t: 'マイ画像でデコる', close: '閉じる', bg: '背景画像', veil: 'ぼかし幕の濃さ（文字を読みやすく）', blur: '背景のぼかし', st: 'ステッカー（画面のすみ）', size: '大きさ',
       pos: '位置', br: '右下', bl: '左下', tr: '右上', cheer: '正解のごほうび画像', cheerOn: '正解したときに表示', icons: 'メニューのアイコン',
       pick: '写真を選ぶ', del: '削除', none: 'なし', reset: 'デコをすべて消す', resetQ: '背景・ステッカー・アイコンの画像をすべて消しますか？',
       noMenu: 'ホーム画面（メニューが見える画面）で開くと、メニューのアイコンを変えられます。', note: '画像はこの端末にだけ保存され、学習記録のバックアップには含まれません。',
       fail: '画像を読み込めませんでした。別の写真でお試しください。', big: 'ファイルが大きすぎます（30MBまで）。', noDb: 'このブラウザでは画像を保存できません（プライベートモードなど）。',
-      saving: '保存中…', test: 'プレビュー'}
+      saving: '保存中…', test: 'プレビュー', fit: 'サイズの合わせ方', cover: '画面いっぱい', contain: '全体を表示', zoom: 'サイズを自分で調整', tile: 'タイル状にくり返す',
+      zoomL: '大きさ', bpos: '位置', center: '中央', top: '上', bottom: '下', left: '左', right: '右'}
   };
 
   // ---- 설정 ----
@@ -420,7 +423,8 @@ a.pick{animation:anUp .32s cubic-bezier(.2,.8,.2,1) backwards}a.pick+a.pick{anim
   function readCfg(){
     let c = {}; try { c = JSON.parse(localStorage.getItem(SKEY) || '{}') || {}; } catch (e) { c = {}; }
     return {veil: num(c.veil, 0, 0.85, DEF.veil), blur: num(c.blur, 0, 12, DEF.blur), stSize: num(c.stSize, 48, 160, DEF.stSize),
-      stPos: ['br', 'bl', 'tr'].includes(c.stPos) ? c.stPos : DEF.stPos, cheer: c.cheer !== false};
+      stPos: ['br', 'bl', 'tr'].includes(c.stPos) ? c.stPos : DEF.stPos, cheer: c.cheer !== false,
+      bgFit: FITS.includes(c.bgFit) ? c.bgFit : DEF.bgFit, bgZoom: num(c.bgZoom, 20, 400, DEF.bgZoom), bgPos: BPOS.includes(c.bgPos) ? c.bgPos : DEF.bgPos};
   }
   let cfg = readCfg();
   const saveCfg = () => { try { localStorage.setItem(SKEY, JSON.stringify(cfg)); } catch (e) {} };
@@ -489,7 +493,7 @@ a.pick{animation:anUp .32s cubic-bezier(.2,.8,.2,1) backwards}a.pick+a.pick{anim
   // ---- CSS ----
   const css = `
 html.deco-bg,html.deco-bg body{background:transparent!important;background-image:none!important}
-#decoBg{position:fixed;inset:0;z-index:-2;background-size:cover;background-position:center;pointer-events:none}
+#decoBg{position:fixed;inset:0;z-index:-2;background-color:var(--bg);background-size:cover;background-position:center;background-repeat:no-repeat;pointer-events:none}
 #decoVeil{position:fixed;inset:0;z-index:-1;background:var(--bg);pointer-events:none}
 .decoIcon{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
 #decoSticker{position:fixed;z-index:6;pointer-events:none;object-fit:contain;filter:drop-shadow(0 3px 6px rgba(0,0,0,.18));animation:decoBob 3.2s ease-in-out infinite}
@@ -527,6 +531,11 @@ html.deco-bg,html.deco-bg body{background:transparent!important;background-image
     if (!bg) { bg = document.createElement('div'); bg.id = 'decoBg'; document.body.prepend(bg); }
     if (!veil) { veil = document.createElement('div'); veil.id = 'decoVeil'; bg.after(veil); }
     bg.style.backgroundImage = `url("${u}")`;
+    // 크기: 꽉 채우기(cover) / 전체 보이기(contain) / 직접 크기(화면 너비 대비 %) / 바둑판(직접 크기로 반복)
+    const z = cfg.bgZoom + '%';
+    bg.style.backgroundSize = cfg.bgFit === 'zoom' || cfg.bgFit === 'tile' ? `${z} auto` : cfg.bgFit;
+    bg.style.backgroundRepeat = cfg.bgFit === 'tile' ? 'repeat' : 'no-repeat';
+    bg.style.backgroundPosition = cfg.bgPos;
     bg.style.filter = cfg.blur ? `blur(${cfg.blur}px)` : '';
     bg.style.inset = cfg.blur ? `-${cfg.blur * 2}px` : '0';   // 흐림 가장자리가 비치지 않게 살짝 크게
     veil.style.opacity = String(cfg.veil);
@@ -613,7 +622,10 @@ html.deco-bg,html.deco-bg body{background:transparent!important;background-image
         <div class="dsec"><h3>${L.bg}<\/h3>
           <div class="drow">${thumb('bg', 'wide')}<div class="dlab"><\/div>${btns('bg')}<\/div>
           ${urls.get('bg') ? `<div class="drow"><span class="dlab">${L.veil}<\/span><input type="range" min="0" max="0.85" step="0.05" value="${cfg.veil}" data-cfg="veil"><\/div>
-          <div class="drow"><span class="dlab">${L.blur}<\/span><input type="range" min="0" max="12" step="1" value="${cfg.blur}" data-cfg="blur"><\/div>` : ''}<\/div>
+          <div class="drow"><span class="dlab">${L.blur}<\/span><input type="range" min="0" max="12" step="1" value="${cfg.blur}" data-cfg="blur"><\/div>
+          <div class="drow"><span class="dlab">${L.fit}<\/span><select data-cfg="bgFit">${FITS.map(f => `<option value="${f}" ${cfg.bgFit === f ? 'selected' : ''}>${L[f]}<\/option>`).join('')}<\/select><\/div>
+          ${cfg.bgFit === 'zoom' || cfg.bgFit === 'tile' ? `<div class="drow"><span class="dlab">${L.zoomL} <small data-zoomv>${cfg.bgZoom}%<\/small><\/span><input type="range" min="20" max="400" step="5" value="${cfg.bgZoom}" data-cfg="bgZoom"><\/div>` : ''}
+          ${cfg.bgFit !== 'tile' ? `<div class="drow"><span class="dlab">${L.bpos}<\/span><select data-cfg="bgPos">${BPOS.map(q => `<option value="${q}" ${cfg.bgPos === q ? 'selected' : ''}>${L[q]}<\/option>`).join('')}<\/select><\/div>` : ''}` : ''}<\/div>
         <div class="dsec"><h3>${L.st}<\/h3>
           <div class="drow">${thumb('sticker', 'contain')}<div class="dlab"><\/div>${btns('sticker')}<\/div>
           ${urls.get('sticker') ? `<div class="drow"><span class="dlab">${L.size}<\/span><input type="range" min="48" max="160" step="4" value="${cfg.stSize}" data-cfg="stSize"><\/div>
@@ -658,6 +670,7 @@ html.deco-bg,html.deco-bg body{background:transparent!important;background-image
       if (c === 'veil') cfg.veil = num(e.target.value, 0, 0.85, DEF.veil);
       else if (c === 'blur') cfg.blur = num(e.target.value, 0, 12, 0);
       else if (c === 'stSize') cfg.stSize = num(e.target.value, 48, 160, DEF.stSize);
+      else if (c === 'bgZoom') { cfg.bgZoom = num(e.target.value, 20, 400, DEF.bgZoom); const v = el.querySelector('[data-zoomv]'); if (v) v.textContent = cfg.bgZoom + '%'; }
       else return;
       saveCfg(); applyBg(); applySticker();
     });
@@ -665,6 +678,8 @@ html.deco-bg,html.deco-bg body{background:transparent!important;background-image
       const c = e.target.dataset && e.target.dataset.cfg;
       if (c === 'stPos') { cfg.stPos = ['br', 'bl', 'tr'].includes(e.target.value) ? e.target.value : 'br'; saveCfg(); applySticker(); }
       else if (c === 'cheer') { cfg.cheer = !!e.target.checked; saveCfg(); }
+      else if (c === 'bgFit') { cfg.bgFit = FITS.includes(e.target.value) ? e.target.value : 'cover'; saveCfg(); applyBg(); render(); const f = el.querySelector('[data-cfg="bgFit"]'); if (f) f.focus(); }
+      else if (c === 'bgPos') { cfg.bgPos = BPOS.includes(e.target.value) ? e.target.value : 'center'; saveCfg(); applyBg(); }
     });
     document.addEventListener('keydown', onKey, true);
     render(); document.body.appendChild(el); document.body.appendChild(file);
