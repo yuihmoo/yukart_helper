@@ -56,6 +56,32 @@
   .pill:hover:not(.on),.iconbtn:hover,.tts:hover,.gtts:hover,.xtts:hover{border-color:var(--accent)}
 }
 @media (prefers-reduced-motion:reduce){.btn,.pill,.choice,.iconbtn,.tts,.gtts,.xtts,.days button,.card.row,.chk,a.pick,.wchip{transition:none}.thsheet .panel{animation:none}}
+/* ---- 모션: 화면 전환·정답/오답·발음 재생 중·테마 전환 (동작 줄이기 설정 시 전부 끔) ---- */
+@keyframes anUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes anNext{from{opacity:.2;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes anPrev{from{opacity:.2;transform:translateX(-28px)}to{opacity:1;transform:none}}
+@keyframes anBack{from{opacity:.35;transform:translateX(-12px)}to{opacity:1;transform:none}}
+@keyframes anPop{0%{transform:scale(1)}40%{transform:scale(1.04)}100%{transform:scale(1)}}
+@keyframes anShake{0%,100%{transform:none}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(2px)}}
+@keyframes anRing{0%{box-shadow:0 0 0 0 var(--accent)}100%{box-shadow:0 0 0 9px transparent}}
+@keyframes anFade{from{opacity:0}to{opacity:1}}
+@keyframes anFadeOut{from{opacity:1}to{opacity:0}}
+@keyframes anDown{from{transform:none;opacity:1}to{transform:translateY(28px);opacity:.4}}
+.an-fwd>*{animation:anUp .28s cubic-bezier(.2,.8,.2,1) backwards}
+.an-fwd>:nth-child(2){animation-delay:.035s}.an-fwd>:nth-child(3){animation-delay:.07s}.an-fwd>:nth-child(4){animation-delay:.105s}
+.an-fwd>:nth-child(5){animation-delay:.14s}.an-fwd>:nth-child(6){animation-delay:.175s}.an-fwd>:nth-child(n+7){animation-delay:.2s}
+.an-next{animation:anNext .22s cubic-bezier(.2,.8,.2,1)}
+.an-prev{animation:anPrev .22s cubic-bezier(.2,.8,.2,1)}
+.an-back{animation:anBack .2s ease-out}
+.choice.ok{animation:anPop .34s ease-out}
+.fb{animation:anUp .24s cubic-bezier(.2,.8,.2,1) backwards}
+.choice.ng{animation:anShake .38s ease-out}
+.speaking{animation:anRing 1s ease-out infinite;border-color:var(--accent)!important}
+a.pick{animation:anUp .32s cubic-bezier(.2,.8,.2,1) backwards}a.pick+a.pick{animation-delay:.06s}
+.th-anim,.th-anim *{transition:background-color .3s ease,color .3s ease,border-color .3s ease,fill .3s ease!important}
+.thsheet{animation:anFade .18s ease-out}
+.thsheet.out{animation:anFadeOut .16s ease-in forwards}.thsheet.out .panel{animation:anDown .16s ease-in forwards}
+@media (prefers-reduced-motion:reduce){.an-fwd>*,.fb,.an-next,.an-prev,.an-back,.choice.ok,.choice.ng,.speaking,a.pick,.thsheet,.thsheet.out,.thsheet.out .panel{animation:none!important}.th-anim,.th-anim *{transition:none!important}}
 /* 테마 선택 시트 */
 .thsheet{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
 .thsheet .panel{width:100%;max-width:560px;max-height:82vh;overflow:auto;background:var(--bg);color:var(--ink);border-radius:20px 20px 0 0;
@@ -103,17 +129,77 @@
     el.innerHTML = `<div class="panel"><div class="hd"><h2>${L.t}</h2><button class="btn" data-x style="flex:0 0 auto;min-height:40px;padding:8px 14px">${L.close}</button></div>
       <div class="grid"><button class="tile sys ${saved === null ? 'on' : ''}" data-t="" aria-pressed="${saved === null}"><div class="nm"><span>${L.sys}</span><span>${saved === null ? '✓' : ''}</span></div><div class="ds">${L.sysd}</div></button>
       ${LIST.map(tile).join('')}</div></div>`;
-    const close = () => { el.remove(); document.removeEventListener('keydown', onKey, true); };
+    let closed = false;
+    const close = () => {
+      if (closed) return; closed = true; document.removeEventListener('keydown', onKey, true);
+      if (reduced()) { el.remove(); return; }
+      el.classList.add('out'); setTimeout(() => el.remove(), 170);   // 내려가며 닫힘 (animationend에 의존하지 않음)
+    };
     // 시트가 열린 동안 앱 단축키(←/→/Enter/Backspace/숫자)가 뒤 화면에 작동하지 않게 막음. Enter는 포커스된 타일을 누름(기본 동작)
     const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; } if (e.key !== 'Tab') e.stopPropagation(); };
     el.addEventListener('click', e => {
       if (e.target === el || e.target.closest('[data-x]')) { close(); return; }
       const b = e.target.closest('[data-t]'); if (!b) return;
-      const v = b.dataset.t || null; write(v); apply(v); close(); if (onChange) onChange(current());
+      const v = b.dataset.t || null; write(v); themeFade(); apply(v); close(); if (onChange) onChange(current());
     });
     document.addEventListener('keydown', onKey, true);
     document.body.appendChild(el);
     const on = el.querySelector('.tile.on'); if (on) on.focus();
   }
+  // ---------- 모션 ----------
+  function reduced(){ try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e) { return false; } }
+  let thT = 0;
+  function themeFade(){   // 테마를 바꿀 때 색이 0.3초 동안 부드럽게 바뀜
+    if (reduced()) return;
+    const r = document.documentElement; r.classList.add('th-anim'); clearTimeout(thT); thT = setTimeout(() => r.classList.remove('th-anim'), 450);
+  }
+  // 화면 전환: 앱의 go()/back()이 방향을 표시(mark) → #view 내용이 바뀌는 순간 그 방향으로 애니메이션.
+  // 필터·암기 취소처럼 같은 화면을 다시 그리는 경우는 표시가 없으므로 움직이지 않음.
+  const AN = ['an-fwd', 'an-next', 'an-prev', 'an-back'];
+  let pend = null, pendT = 0, lastBar = null;
+  function mark(dir, soft){
+    if (soft && pend) return;                       // ‹ 이전 버튼에서 이미 'prev'로 표시한 경우 유지
+    pend = dir; clearTimeout(pendT);
+    pendT = setTimeout(() => { pend = null; }, 0);   // 화면이 안 바뀌었으면 다음 렌더에 남지 않게 폐기
+  }
+  function play(el, dir){
+    el.classList.remove(...AN);
+    if (!dir || reduced()) return;
+    void el.offsetWidth;                            // 같은 방향 연속 전환에서도 다시 재생
+    el.classList.add('an-' + dir);
+    clearTimeout(el._anT); el._anT = setTimeout(() => el.classList.remove(...AN), 700);
+  }
+  function barGrow(v){   // 퀴즈 진행 막대: 이전 값에서 새 값으로 늘어나게
+    const i = v.querySelector('.bar i'); if (!i) { lastBar = null; return; }
+    const to = i.style.width, a = parseFloat(lastBar), b = parseFloat(to); lastBar = to;
+    if (reduced() || !(a >= 0) || !(b > a)) return;
+    i.style.width = a + '%'; void i.offsetWidth;
+    requestAnimationFrame(() => { if (i.isConnected) i.style.width = to; });
+  }
+  function bindView(){
+    const v = document.getElementById('view'); if (!v || v._anBound) return; v._anBound = true;
+    try { new MutationObserver(() => { const d = pend; pend = null; play(v, d); barGrow(v); }).observe(v, {childList: true}); } catch(e) {}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindView); else bindView();
+  // ‹ 이전 / 다음 › (클릭·키보드·스와이프 모두 click으로 들어옴) → 좌우 슬라이드 방향
+  document.addEventListener('click', e => {
+    const b = e.target && e.target.closest && e.target.closest('#prev,#next,#nx');
+    if (b && !b.disabled) mark(b.id === 'prev' ? 'prev' : 'next');
+  }, true);
+  // 🔊 재생 중 표시: 누른 버튼에 파동 링, 읽기가 끝나면 사라짐
+  let spEl = null, spT = 0;
+  const spStop = () => { clearInterval(spT); if (spEl) spEl.classList.remove('speaking'); spEl = null; };
+  document.addEventListener('click', e => {
+    const b = e.target && e.target.closest && e.target.closest('.tts,.gtts,.xtts');
+    if (!b || !window.speechSynthesis) return;
+    spStop(); spEl = b; b.classList.add('speaking');
+    const t0 = Date.now();
+    spT = setInterval(() => {
+      let busy = true; try { busy = speechSynthesis.speaking || speechSynthesis.pending; } catch(err) { busy = false; }
+      const dt = Date.now() - t0;
+      if ((!busy && dt > 500) || dt > 20000 || !b.isConnected) spStop();   // 음성 준비 지연 0.5초 허용, 최대 20초
+    }, 150);
+  });
+  window.ANIM = {mark, play};
   window.THEME = {list: LIST, apply, current, read, open};
 })();

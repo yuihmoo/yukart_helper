@@ -49,10 +49,6 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
   background:var(--accent);color:var(--on-accent);font-weight:700;font-size:17px;box-shadow:0 6px 24px rgba(0,0,0,.2);
   opacity:0;pointer-events:none;transition:opacity .15s,transform .15s;z-index:20}
 .dtoast.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
-.swipe-l{animation:swl .18s ease-out}.swipe-r{animation:swr .18s ease-out}
-@keyframes swl{from{transform:translateX(40px);opacity:.4}to{transform:none;opacity:1}}
-@keyframes swr{from{transform:translateX(-40px);opacity:.4}to{transform:none;opacity:1}}
-@media (prefers-reduced-motion:reduce){.swipe-l,.swipe-r{animation:none}}
 .iconbtn.txt{width:auto;padding:0 10px;font-size:13px;font-weight:600;color:var(--sub);white-space:nowrap}
 .iconbtn.txt.on{background:var(--accent);color:var(--on-accent)}
 /* 가리기: 뜻·읽기 / 예문 해석 (탭하면 그 항목만 잠깐 보기) */
@@ -419,11 +415,12 @@ document.addEventListener('click', e => {
 // ---------- router ----------
 const view = document.getElementById('view'), titleEl = document.getElementById('title'), backBtn = document.getElementById('backBtn');
 let stack = [];
-function go(fn, args, replace){ if (replace) stack.pop(); stack.push([fn, args]); fn(...(args||[])); window.scrollTo(0, 0); }
+function go(fn, args, replace){ if (replace) stack.pop(); stack.push([fn, args]); try { ANIM.mark(replace ? 'next' : 'fwd', true); } catch(e) {} fn(...(args||[])); window.scrollTo(0, 0); }
 function back(){
   if (stack.length <= 1) { location.href = CONF.back; return; }  // main 홈 → 첫 화면, 기출 홈 → main
   stack.pop();
   const [fn, args] = stack[stack.length-1];
+  try { ANIM.mark('back'); } catch(e) {}
   // Detail에서 퀴즈로 돌아올 때 진행 상태를 유지 (재시작 방지)
   if (fn === Quiz && Quiz._resume) { try { Quiz._resume(); return; } catch(e) {} }
   fn(...(args||[]));
@@ -742,7 +739,7 @@ function Quiz(list, title, day){
     if (quizMode === 'choice') mark(btn, ok, st.w.r);
     else { const f = document.getElementById('f'); if (f) f.querySelector('input').disabled = true; const g = document.getElementById('giveup'); if (g) g.remove(); }
     fb.innerHTML = `<div class="fb ${ok?'ok':'ng'}">${ok ? '⭕ 정답' : '❌ 오답'} — <b class="jp">${esc(st.w.r)}</b>${!ok && given && quizMode==='type' ? ` <span style="color:var(--sub)">(입력: ${esc(normReading(given))})</span>` : ''}</div>`;
-    setTimeout(() => { st.step = 2; st.locked = false; draw(); }, ok ? 650 : 1300);
+    setTimeout(() => { st.step = 2; st.locked = false; try { ANIM.mark('next'); } catch(e) {} draw(); }, ok ? 650 : 1300);
   }
   function answerMeaning(ok, btn){
     if (st.locked) return; st.locked = true; st.done = true;
@@ -1179,11 +1176,8 @@ document.addEventListener('keydown', e => {
     const sel = getSelection && getSelection(); if (sel && String(sel).length) return;              // 글자 선택 중
     const b = dx < 0 ? (btn('nx') || btn('next')) : btn('prev');
     if (!b) return;
-    b.click();
-    view.classList.remove('swipe-l', 'swipe-r'); void view.offsetWidth;
-    view.classList.add(dx < 0 ? 'swipe-l' : 'swipe-r');
+    b.click();   // 슬라이드 애니메이션은 shared/theme.js(ANIM)가 처리
   }, {passive: true});
-  view.addEventListener('animationend', () => view.classList.remove('swipe-l', 'swipe-r'));
 })();
 
 // ---------- 더블탭: 단어 상세에서 화면을 두 번 톡톡 → '외웠어요' (이미 외운 단어면 취소하지 않고 다음으로만) ----------
