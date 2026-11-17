@@ -135,7 +135,7 @@ html.deco-bg,html.deco-bg body{background:transparent!important;background-image
 .dmsg{font-size:13px;color:var(--ng);min-height:18px;margin:0 2px 6px}
 .dmsg.ok{color:var(--ok)}
 /* 상단 바: 직각 띠 대신 둥근 유리 바 (뒤 내용이 비치며 흐려짐) */
-header.top{border-radius:0 0 18px 18px;margin:0 -10px;padding-left:10px!important;padding-right:10px!important}
+header.top{border-radius:0 0 18px 18px;margin:0 -10px 12px;padding-left:10px!important;padding-right:10px!important}
 @supports ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))) and (background:color-mix(in srgb,red 50%,transparent)){
   header.top{background:color-mix(in srgb,var(--bg) 74%,transparent)!important;-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
 }
