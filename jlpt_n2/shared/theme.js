@@ -134,7 +134,7 @@ a.pick{animation:anUp .32s cubic-bezier(.2,.8,.2,1) backwards}a.pick+a.pick{anim
         <div class="pv" style="background:${t.sw[0]}"><i style="flex:1;height:70%;background:${t.sw[1]}"></i><i style="width:22px;height:22px;background:${t.sw[2]}"></i></div>
         <div class="nm"><span>${esc(ja ? t.ja : t.ko)}</span><span>${saved === t.id ? '✓' : ''}</span></div>
         <div class="ds">${esc((ja ? t.dj : t.d) || (t.dark ? (ja ? '暗め' : '어두운 테마') : (ja ? '明るめ' : '밝은 테마')))}</div></button>`;
-    el.innerHTML = `<div class="panel"><div class="hd"><h2>${L.t}</h2><button class="btn" data-x style="flex:0 0 auto;min-height:40px;padding:8px 14px">${L.close}</button></div>
+    el.innerHTML = `<div class="panel"><div class="hd"><h2>${L.t}</h2>${window.DECO ? `<button class="btn" data-deco style="flex:0 0 auto;min-height:40px;padding:8px 12px">🖼 ${ja ? 'デコる' : '꾸미기'}</button>` : ''}<button class="btn" data-x style="flex:0 0 auto;min-height:40px;padding:8px 14px">${L.close}</button></div>
       <div class="grid"><button class="tile sys ${saved === null ? 'on' : ''}" data-t="" aria-pressed="${saved === null}"><div class="nm"><span>${L.sys}</span><span>${saved === null ? '✓' : ''}</span></div><div class="ds">${L.sysd}</div></button>
       ${LIST.map(tile).join('')}</div></div>`;
     let closed = false;
@@ -147,6 +147,7 @@ a.pick{animation:anUp .32s cubic-bezier(.2,.8,.2,1) backwards}a.pick+a.pick{anim
     const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; } if (e.key !== 'Tab') e.stopPropagation(); };
     el.addEventListener('click', e => {
       if (e.target === el || e.target.closest('[data-x]')) { close(); return; }
+      if (e.target.closest('[data-deco]')) { document.removeEventListener('keydown', onKey, true); el.remove(); try { window.DECO.open(lang); } catch (err) {} return; }
       const b = e.target.closest('[data-t]'); if (!b) return;
       const v = b.dataset.t || null; write(v); themeFade(); apply(v); close(); if (onChange) onChange(current());
     });
