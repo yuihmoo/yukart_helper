@@ -514,7 +514,7 @@ header.top{border-radius:0 0 18px 18px;margin:0 -10px 12px;padding-left:10px!imp
 html.deco-bg header.top{box-shadow:0 8px 20px -14px rgba(0,0,0,.35)}
 /* 유리 카드 */
 @supports (background:color-mix(in srgb,red 50%,transparent)){
-  html.deco-glass .card,html.deco-glass .choice,html.deco-glass .fb,html.deco-glass .dsec{background:color-mix(in srgb,var(--card) var(--dgp,80%),transparent)!important;-webkit-backdrop-filter:blur(10px) saturate(1.3);backdrop-filter:blur(10px) saturate(1.3)}
+  html.deco-glass .card,html.deco-glass .choice,html.deco-glass .fb,html.deco-glass .dsec{-webkit-backdrop-filter:blur(10px) saturate(1.3);backdrop-filter:blur(10px) saturate(1.3)}
   html.deco-glass .choice.ok{background:color-mix(in srgb,var(--ok-weak) 92%,transparent)!important}
   html.deco-glass .choice.ng{background:color-mix(in srgb,var(--ng-weak) 92%,transparent)!important}
 }
@@ -641,12 +641,20 @@ html.deco-bg header.top{box-shadow:0 8px 20px -14px rgba(0,0,0,.35)}
       img.src = url;
     });
   }
+  // 유리 효과: 카드·칩·상단 바를 같은 투명도로 한꺼번에 (테마 색을 읽어 rgba로 덮어씀 → 모든 카드·안쪽 칩이 일관되게)
   function applyGlass(){
     const on = !!urls.get('bg') && cfg.glass > 0, r = document.documentElement;
+    let el = document.getElementById('decoGlass');
     r.classList.toggle('deco-glass', on);
-    if (on) r.style.setProperty('--dgp', Math.round((1 - cfg.glass) * 100) + '%'); else r.style.removeProperty('--dgp');
+    if (!on) { if (el) el.remove(); return; }
+    if (el) el.textContent = '';                       // 원래 테마 색 기준으로 다시 계산
+    const a = +(1 - cfg.glass).toFixed(2), rgba = c => `rgba(${c.map(Math.round).join(',')},${a})`;
+    const card = cssRgb('var(--card)'), chip = cssRgb('var(--chip)'), bg = cssRgb('var(--bg)');
+    if (!el) { el = document.createElement('style'); el.id = 'decoGlass'; document.head.appendChild(el); }
+    el.textContent = `:root:root:root{--card:${rgba(card)};--chip:${rgba(chip)}}
+html.deco-glass header.top{background:${rgba(bg)}!important}`;
   }
-  const applyAll = () => { applyBg(); applySticker(); applyIcons(); applyAccent(); applyGlass(); };
+  const applyAll = () => { applyBg(); applySticker(); applyIcons(); applyGlass(); applyAccent(); };
 
   // 화면이 다시 그려질 때 아이콘 재적용 + 정답 피드백(.fb.ok)이 나타나면 축하 이미지
   let raf = 0;
@@ -674,8 +682,8 @@ html.deco-bg header.top{box-shadow:0 8px 20px -14px rgba(0,0,0,.35)}
   }
   function boot(){
     watch(); loadAll();
-    try { new MutationObserver(() => applyAccent()).observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']}); } catch (e) {}
-    try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyAccent()); } catch (e) {}
+    try { new MutationObserver(() => { applyGlass(); applyAccent(); }).observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']}); } catch (e) {}
+    try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { applyGlass(); applyAccent(); }); } catch (e) {}
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 
