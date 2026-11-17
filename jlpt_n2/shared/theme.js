@@ -26,6 +26,8 @@
       v: P('#f4ecd8', '#fbf5e6', '#3b2f22', '#7d6b55', '#e2d5b8', '#9c5b2e', '#f0dcc8', '#5f7a3a', '#e4ead2', '#a8442f', '#f2d9cf', '#ebe0c6', '#fff', '#4f6f8f', '#dfe6ee', S)},
     {id: 'sakura',   ko: '사쿠라',            ja: 'さくら',              dark: false, d: '연한 벚꽃 핑크', dj: '淡い桜色',
       v: P('#fbf3f5', '#ffffff', '#3a2a30', '#8a6f78', '#f0dde3', '#bf4776', '#fae0ea', '#3f9a6b', '#dcf1e5', '#cf4b4b', '#f8dede', '#f6e7ec', '#fff', '#7a6fc0', '#ebe8f8', S)},
+    {id: 'mochi',    ko: '말랑 파스텔',       ja: 'もちもちパステル',    dark: false, d: '동글동글 귀여운 파스텔', dj: 'まるくてかわいい淡い色',
+      v: P('#fff7f2', '#ffffff', '#3d2f36', '#7a6570', '#f5e1e6', '#ad4069', '#ffe3ec', '#3f9a6b', '#ddf3e6', '#c94a4a', '#fde0e0', '#fdeef2', '#fff', '#4a78b0', '#e3eefb', '0 2px 0 #f2d4dc,0 6px 16px rgba(173,64,105,.08)')},
     {id: 'matcha',   ko: '말차',              ja: '抹茶',                dark: false, d: '차분한 녹차 그린', dj: '落ち着いた緑',
       v: P('#f2f4ec', '#fbfcf7', '#26301f', '#67725c', '#dfe5d2', '#4f6f24', '#e3ecd2', '#3f8a4f', '#dbeedd', '#b5523b', '#f3ddd5', '#e8ecdd', '#fff', '#4a7a8c', '#ddeaee', S)},
     {id: 'contrast', ko: '고대비',            ja: 'ハイコントラスト',    dark: true,  d: '글자가 가장 또렷하게', dj: '文字がいちばん見やすい',
@@ -56,6 +58,12 @@
   .pill:hover:not(.on),.iconbtn:hover,.tts:hover,.gtts:hover,.xtts:hover{border-color:var(--accent)}
 }
 @media (prefers-reduced-motion:reduce){.btn,.pill,.choice,.iconbtn,.tts,.gtts,.xtts,.days button,.card.row,.chk,a.pick,.wchip{transition:none}.thsheet .panel{animation:none}}
+:root[data-theme="mochi"] body{background-color:var(--bg);background-image:radial-gradient(#ffd9e4 1.6px,transparent 1.7px),radial-gradient(#d9ecff 1.6px,transparent 1.7px);background-size:28px 28px;background-position:0 0,14px 14px}
+:root[data-theme="mochi"] .card,:root[data-theme="mochi"] .choice{border-radius:22px}
+:root[data-theme="mochi"] .btn,:root[data-theme="mochi"] .pill,:root[data-theme="mochi"] .iconbtn,:root[data-theme="mochi"] .tts,:root[data-theme="mochi"] .gtts,:root[data-theme="mochi"] .xtts{border-radius:999px}
+:root[data-theme="mochi"] .btn.primary{box-shadow:0 3px 0 #8a2f52}
+:root[data-theme="mochi"] .btn.primary:active:not(:disabled){transform:translateY(2px) scale(.98);box-shadow:0 1px 0 #8a2f52}
+:root[data-theme="mochi"] .thsheet .tile[data-t="mochi"] .pv{background-image:radial-gradient(#ffd9e4 2px,transparent 2.2px);background-size:12px 12px}
 /* ---- 모션: 화면 전환·정답/오답·발음 재생 중·테마 전환 (동작 줄이기 설정 시 전부 끔) ---- */
 @keyframes anUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes anNext{from{opacity:.2;transform:translateX(28px)}to{opacity:1;transform:none}}
