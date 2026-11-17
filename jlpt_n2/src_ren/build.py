@@ -103,6 +103,7 @@ _fp = SRC / 'freq.json'
 freq = json.loads(_fp.read_text(encoding='utf-8')) if _fp.exists() else {'meta': None, 'words': {}}
 data = f'const FREQ = {js(freq)};\n' + f'const VOCAB = {js(vocab)};\nconst HANJA = {js(hanja)};\nconst GRAM = {js(out_g)};\nconst EXAMPLES = {js(examples)};\nconst EXMORE = {js(exmore)};'
 html = (SRC / 'template.html').read_text(encoding='utf-8').replace('/*__DATA__*/', data, 1)
+html = html.replace('/*__THEME__*/', (SRC.parent / 'shared' / 'theme.js').read_text(encoding='utf-8').replace('</', '<\\/'), 1)
 html = html.replace('/*__VOICE__*/', (SRC.parent / 'shared' / 'voice.js').read_text(encoding='utf-8'), 1)
 html = html.replace('/*__BACKUP__*/', (SRC.parent / 'shared' / 'backup.js').read_text(encoding='utf-8'), 1)
 OUT.write_text(html, encoding='utf-8')

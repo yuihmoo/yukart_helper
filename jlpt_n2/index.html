@@ -38,6 +38,7 @@ a.pick:active{transform:scale(.98)}
 .btn.primary{background:var(--accent);color:var(--on-accent)}
 .bkopen{background:none;border:0;color:var(--sub);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;justify-self:center}
 </style>
+<script src="shared/theme.js"></script>
 </head>
 <body>
 <main>
@@ -51,12 +52,14 @@ a.pick:active{transform:scale(.98)}
     <div><div class="name">れん</div><div class="desc" id="renDesc">TOPIK 韓国語 単語 · 文法</div></div>
   </a>
   <div id="bkBanner"></div>
+  <button class="bkopen" id="thOpen" type="button"></button>
   <button class="bkopen" id="bkOpen" type="button"></button>
   <section id="bkView" hidden></section>
 </main>
 <script src="shared/backup.js"></script>
 <script>
-try { const t = JSON.parse(localStorage.getItem('n2:theme') || 'null'); if (['light', 'dim', 'dark'].includes(t)) { document.documentElement.setAttribute('data-theme', t); const m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', {light: '#f6f5f2', dim: '#3b3f47', dark: '#16181d'}[t]); } } catch (e) {}
+// 테마는 <head>의 shared/theme.js가 적용. 아래 버튼으로 선택 시트 열기
+try { const tb = document.getElementById('thOpen'), ja = /^ja/i.test(navigator.language || ''); tb.textContent = '🎨 ' + (ja ? 'テーマ · 테마' : '테마 · テーマ'); tb.onclick = () => THEME.open(ja ? 'ja' : 'ko'); } catch (e) {}
 // ren.html이 아직 배포되지 않았으면 비활성 표시 (오프라인이면 캐시 응답으로 판단)
 fetch('ren.html').then(r => { if (!r.ok) throw 0; }).catch(() => {
   document.getElementById('ren').classList.add('off');
