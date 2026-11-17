@@ -76,6 +76,10 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 .row.done{opacity:.55}
 .row .gw{font-size:18px;word-break:keep-all}.detail .head .gword{font-size:30px}
 .hjtag{font-size:12px;color:var(--accent);margin-left:6px}
+.mbadge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--ng-weak);color:var(--ink);border:1px solid var(--ng);font-size:12px;font-weight:700;vertical-align:4px;font-family:inherit;white-space:nowrap}
+.misscnt{margin-top:10px;padding:9px 12px;border-radius:10px;background:var(--card);border:1px solid var(--ng);font-size:13px;line-height:1.5}
+.misscnt b{color:var(--ink)}
+.linkbtn{background:none;border:0;color:var(--sub);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;padding:6px}
 .pstar{font-size:12px;margin-left:6px;vertical-align:4px;color:var(--accent);font-family:inherit;letter-spacing:-1px}
 .pstar.t1{opacity:.7}
 .pred{display:inline-block;margin-top:8px;padding:5px 10px;border-radius:10px;background:var(--accent-weak);color:var(--accent);font-size:13px;font-weight:600}
@@ -262,6 +266,16 @@ const memorized = new Set(store.get('memo', []));
 const wrongSet = new Set(store.get('wrong', []));
 const saveMemo = () => store.set('memo', [...memorized]);
 const saveWrong = () => store.set('wrong', [...wrongSet]);
+// マイ間違い単語帳: クイズで間違えるたびに単語ごとの累積回数 +1（正解しても減らない）。キーは単語番号 n → 並びが変わっても残る
+const missKey = w => 'n' + w.n;
+let miss = store.get('miss', {}); if (!miss || typeof miss !== 'object' || Array.isArray(miss)) miss = {};
+const missOf = w => { const v = miss[missKey(w)]; return v && v.n > 0 ? v.n | 0 : 0; };
+function missAdd(w){
+  const k = missKey(w), v = miss[k] && typeof miss[k] === 'object' ? miss[k] : {n: 0, t: 0};
+  v.n = (v.n | 0) + 1; v.t = Date.now(); miss[k] = v; store.set('miss', miss); return v.n;
+}
+function missWords(){ const seen = new Set(), out = []; for (const w of WORDS) { const k = missKey(w); if (!seen.has(k) && missOf(w) > 0) { seen.add(k); out.push(w); } } return out; }
+const mBadge = w => { const n = missOf(w); return n ? `<span class="mbadge" title="クイズで間違えた回数">✕${n}</span>` : ''; };
 // 文法の暗記チェック（単語帳と同じ方式）。キーは文法の番号 n → 並びが変わっても記録が残る
 const gMemo = new Set((store.get('gmemo', []) || []).filter(x => typeof x === 'number'));
 const saveGMemo = () => store.set('gmemo', [...gMemo]);
@@ -308,6 +322,7 @@ function Home(){
       <button class="card" id="mBook"><div class="big ko">단</div><div><h2>単語帳</h2><p>漢字語の分解 · 同じ漢字の単語</p></div></button>
       <button class="card" id="mQuiz"><div class="big ko">퀴</div><div><h2>Day別クイズ</h2><p>初級・中級 · 意味を選ぶ · 韓国語を選ぶ · 書く</p></div></button>
       <button class="card" id="mGram"><div class="big ko">문</div><div><h2>中級文法</h2><p>暗記 ${GRAMMAR.filter(g => gMemo.has(g.n)).length}/${GRAMMAR.length} · 穴埋めクイズ</p></div></button>
+      <button class="card" id="mMiss"><div class="big kj">苦</div><div><h2>マイ間違い単語帳</h2><p>クイズで間違えた単語 ${missWords().length} · 間違えた回数順</p></div></button>
       <button class="card" id="mWrong"><div class="big kj">誤</div><div><h2>間違いノート</h2><p>間違えた単語だけ (${wrongSet.size})</p></div></button>
       <button class="card" id="mVoice"><div class="big kj">音</div><div><h2>音声設定</h2><p>読み上げの声・速さ</p></div></button>
       <button class="card" id="mBackup"><div class="big kj">保</div><div><h2>学習記録のバックアップ</h2><p>書き出し · 読み込み · 自動バックアップ</p></div></button>
@@ -321,6 +336,7 @@ function Home(){
   document.getElementById('mGram').onclick = () => go(GBook, [store.get('gbookDay', 1)]);
   document.getElementById('mVoice').onclick = () => go(VoiceSettings);
   document.getElementById('mBackup').onclick = () => go(BackupScreen);
+  document.getElementById('mMiss').onclick = () => go(MissBook);
   BK.banner(document.getElementById('bkBanner'), () => go(BackupScreen));
   document.getElementById('mWrong').onclick = () => {
     const list = WORDS.filter(w => wrongSet.has(w.id));
@@ -342,6 +358,43 @@ function Review(){
   if (dg.length) document.getElementById('rG').onclick = () => go(GQuiz, [dg.slice(0, REVIEW_MAX), '文法の復習', null]);
 }
 
+// ---------- マイ間違い単語帳 ----------
+let missSort = 'cnt';
+function MissBook(){
+  setHeader('マイ間違い単語帳');
+  const all = missWords();
+  const cmpT = (a, b) => ((miss[missKey(b)] || {}).t || 0) - ((miss[missKey(a)] || {}).t || 0);
+  const list = missSort === 'many' ? all.filter(w => missOf(w) >= 3) : all.slice();
+  list.sort(missSort === 'recent' ? cmpT : (a, b) => missOf(b) - missOf(a) || cmpT(a, b));
+  const total = all.reduce((s, w) => s + missOf(w), 0);
+  view.innerHTML = `
+    <div class="toolbar">
+      <button class="pill ${missSort==='cnt'?'on':''}" data-s="cnt">回数順 ${all.length}</button>
+      <button class="pill ${missSort==='recent'?'on':''}" data-s="recent">最近間違えた順</button>
+      <button class="pill ${missSort==='many'?'on':''}" data-s="many">3回以上 ${all.filter(w => missOf(w) >= 3).length}</button>
+    </div>
+    <div class="list">${list.map(w => `
+      <div class="card row ${memorized.has(w.id)?'done':''}" data-id="${w.id}">
+        <button class="chk ${memorized.has(w.id)?'on':''}" data-chk="${w.id}" aria-label="暗記チェック">${memorized.has(w.id)?'✓':''}</button>
+        <div class="w ko">${esc(w.ko)}${w.hj ? `<span class="hjtag kj">${esc(w.hj.map(h => h[1]).join(''))}</span>` : ''}${mBadge(w)}</div>
+        <div class="m">${esc(w.ja)}</div>
+      </div>`).join('') || `<p class="note">${all.length ? '該当する単語がありません。' : 'まだ間違えた単語はありません。クイズで間違えた単語がここに自動で集まり、間違えた回数がたまります。'}</p>`}</div>
+    ${list.length ? `<div class="nav2"><button class="btn primary" id="mqz">この単語でクイズ <small>${Math.min(list.length, 20)}</small></button></div>` : ''}
+    <p class="note">累計 ${total} 回 · クイズ（Day別・復習・間違いノート）で間違えるたびに +1、正解しても減りません。<br>
+    ✓ は単語帳と同じ「覚えた」チェックです。${all.length ? ' <button class="linkbtn" id="mreset" type="button">間違い回数の記録を消す</button>' : ''}</p>`;
+  view.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { missSort = b.dataset.s; MissBook(); });
+  view.querySelectorAll('.row').forEach(r => r.onclick = e => {
+    const id = +r.dataset.id;
+    if (e.target.closest('[data-chk]')) { memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo(); MissBook(); return; }
+    go(Detail, [id, list.map(w => w.id)]);
+  });
+  const q = document.getElementById('mqz'); if (q) q.onclick = () => go(Quiz, [list.slice(0, 20), 'マイ間違い単語帳クイズ', null]);
+  const rs = document.getElementById('mreset'); if (rs) rs.onclick = () => {
+    if (!confirm(`${all.length} 語の間違い回数の記録をすべて消しますか？（覚えたチェック・復習予定はそのまま）`)) return;
+    miss = {}; store.set('miss', miss); MissBook();
+  };
+}
+
 // ---------- book ----------
 let bookFilter = 'all';
 function Book(day){
@@ -361,7 +414,7 @@ function Book(day){
     <div class="list">${list.map(w => `
       <div class="card row ${memorized.has(w.id)?'done':''}" data-id="${w.id}">
         <button class="chk ${memorized.has(w.id)?'on':''}" data-chk="${w.id}" aria-label="暗記チェック">${memorized.has(w.id)?'✓':''}</button>
-        <div class="w ko">${esc(w.ko)}${w.hj ? `<span class="hjtag kj">${esc(w.hj.map(h => h[1]).join(''))}</span>` : ''}${w.freq ? `<span class="pstar t${w.freq.tier}">${STAR(w.freq.tier)}</span>` : ''}</div>
+        <div class="w ko">${esc(w.ko)}${w.hj ? `<span class="hjtag kj">${esc(w.hj.map(h => h[1]).join(''))}</span>` : ''}${w.freq ? `<span class="pstar t${w.freq.tier}">${STAR(w.freq.tier)}</span>` : ''}${mBadge(w)}</div>
         <div class="m">${esc(w.ja)}</div>
       </div>`).join('') || '<p class="note">該当する単語がありません。</p>'}</div>
     <div class="nav2"><button class="btn primary" id="toQuiz">${dayLabel(day)} クイズ</button></div>`;
@@ -430,7 +483,7 @@ function Detail(id, ids){
       <div class="word ko">${wordHtml}</div>
       ${w.hj && w.hj.map(h => h[1]).join('') !== w.ja ? `<div class="kj" style="font-size:20px;color:var(--sub)">${esc(w.hj.map(h => h[1]).join(''))}</div>` : ''}
       <div class="mean">${esc(w.ja)}</div>
-      <div class="meta">${LV_NAME[w.lv]} No.${w.no} · ${esc(srsLabel('w' + w.id))}</div>
+      <div class="meta">${LV_NAME[w.lv]} No.${w.no} · ${esc(srsLabel('w' + w.id))}${missOf(w) ? ` · クイズで${missOf(w)}回間違い` : ''}</div>
       ${w.freq ? `<div class="pred t${w.freq.tier}">${STAR(w.freq.tier)} よく使う単語 <small>一般的な韓国語の使用頻度で${LV_NAME[w.lv]}の上位${w.freq.tier === 2 ? '5' : '15'}%（TOPIK出題予想ではありません）</small></div>` : ''}
       <button class="tts" id="tts">🔊 発音を聞く</button>
     </div>
@@ -539,8 +592,10 @@ function Quiz(list, title, day){
     }
     if (ok) { score++; wrongSet.delete(w.id); } else { wrong.push(w); wrongSet.add(w.id); }
     saveWrong(); srsGrade('w' + w.id, ok);
+    const mc = ok ? 0 : missAdd(w);   // マイ間違い単語帳 累計 +1
     document.getElementById('fb').innerHTML = `
       <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 正解' : '❌ 不正解'} — <b class="ko">${esc(w.ko)}</b>${w.hj ? ` <span class="kj">(${esc(w.hj.map(h => h[1]).join(''))})</span>` : ''} : ${esc(w.ja)}
+        ${mc ? `<div class="misscnt">📕 この単語は <b>${mc}回目</b> の間違いです${mc >= 3 ? ' — よく間違える単語！' : ''}<br>メニューの<b>マイ間違い単語帳</b>に保存しました。あとで必ず復習しましょう。</div>` : ''}
         ${!ok && typed ? `<div style="color:var(--sub);font-size:13px">入力: ${esc(typed)}</div>` : ''}
         ${w.ex ? `<div class="ko" style="margin-top:6px">${exMarked(w.ex[0], w.ko)}</div><div style="color:var(--sub);font-size:13px">${esc(w.ex[1])}</div>` : ''}</div>
       <div class="nav2"><button class="btn" id="info">詳しく</button><button class="btn primary" id="nx">${idx < qs.length-1 ? '次へ ›' : '結果'}</button></div>`;
@@ -558,10 +613,12 @@ function Quiz(list, title, day){
     view.innerHTML = `
       <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
         <div class="score">${score} / ${qs.length}</div>
-        <div style="color:var(--sub)">${score === qs.length ? '満点！🎉' : `間違えた ${wrong.length} 語は間違いノートに保存`}</div></div>
+        <div style="color:var(--sub)">${score === qs.length ? '満点！🎉' : `間違えた ${wrong.length} 語は間違いノートとマイ間違い単語帳に保存`}</div></div>
       ${wrong.length ? `<h2 class="sub">間違えた単語</h2><div class="list">${wrong.map(w => `
-        <button class="card row" data-id="${w.id}"><div class="w ko">${esc(w.ko)}</div><div class="m">${esc(w.ja)}</div></button>`).join('')}</div>` : ''}
-      <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">間違いだけもう一度</button>` : ''}<button class="btn" id="again">最初から</button></div>`;
+        <button class="card row" data-id="${w.id}"><div class="w ko">${esc(w.ko)}${mBadge(w)}</div><div class="m">${esc(w.ja)}</div></button>`).join('')}</div>` : ''}
+      <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">間違いだけもう一度</button>` : ''}<button class="btn" id="again">最初から</button></div>
+      ${wrong.length ? `<button class="linkbtn" id="toMiss" type="button" style="display:block;margin:10px auto 0">マイ間違い単語帳を見る ›</button>` : ''}`;
+    const tm = document.getElementById('toMiss'); if (tm) tm.onclick = () => go(MissBook);
     view.querySelectorAll('.row[data-id]').forEach(r => r.onclick = () => go(Detail, [+r.dataset.id, wrong.map(w => w.id)]));
     const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(Quiz, [wrong.slice(), title + '（再挑戦）', null], true);
     document.getElementById('again').onclick = () => go(Quiz, [list, title, day], true);

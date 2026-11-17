@@ -168,6 +168,10 @@ h2.sub{font-size:14px;color:var(--sub);margin:18px 0 8px;font-weight:600}
 .sub.cat{margin:14px 0 2px;font-size:12px}
 .pstar{font-size:12px;margin-left:6px;vertical-align:4px;color:var(--accent);font-family:inherit;letter-spacing:-1px}
 .pstar.t1{opacity:.7}
+.mbadge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--ng-weak);color:var(--ink);border:1px solid var(--ng);font-size:12px;font-weight:700;vertical-align:4px;font-family:inherit;white-space:nowrap}
+.misscnt{margin-top:10px;padding:9px 12px;border-radius:10px;background:var(--card);border:1px solid var(--ng);font-size:13px;line-height:1.5}
+.misscnt b{color:var(--ink)}
+.linkbtn{background:none;border:0;color:var(--sub);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;padding:6px}
 .pred{display:inline-block;margin-top:8px;padding:5px 10px;border-radius:10px;background:var(--accent-weak);color:var(--accent);font-size:13px;font-weight:600}
 .pred small{display:block;font-weight:400;color:var(--sub);font-size:11px;margin-top:2px}
 .qparts{flex-wrap:wrap}.qparts .btn{flex:1 1 40%}.qparts small{opacity:.8;font-weight:400;margin-left:2px}
@@ -434,6 +438,17 @@ const wrongSet = new Set(store.get('wrong', []));
 const best = store.get('best', {});
 const saveMemo = () => store.set('memo', [...memorized]);
 const saveWrong = () => store.set('wrong', [...wrongSet]);
+// 개인 오답 단어장: 퀴즈에서 틀릴 때마다 단어별 누적 횟수 +1 (맞혀도 줄지 않음). 키는 표기|읽기 → 데이터 순서가 바뀌어도 유지
+const missKey = w => w.w + '|' + w.r;
+let miss = store.get('miss', {}); if (!miss || typeof miss !== 'object' || Array.isArray(miss)) miss = {};
+const missOf = w => { const v = miss[missKey(w)]; return v && v.n > 0 ? v.n | 0 : 0; };
+function missAdd(w){
+  const k = missKey(w), v = miss[k] && typeof miss[k] === 'object' ? miss[k] : {n: 0, t: 0};
+  v.n = (v.n | 0) + 1; v.t = Date.now(); miss[k] = v; store.set('miss', miss); return v.n;
+}
+// 같은 단어가 여러 일차에 중복 수록돼도 한 번만
+function missWords(){ const seen = new Set(), out = []; for (const w of WORDS) { const k = missKey(w); if (!seen.has(k) && missOf(w) > 0) { seen.add(k); out.push(w); } } return out; }
+const mBadge = w => { const n = missOf(w); return n ? `<span class="mbadge" title="퀴즈에서 틀린 횟수">✕${n}</span>` : ''; };
 // 문형 암기 체크 (단어장과 같은 방식). 키는 문형 문자열 → 순서가 바뀌어도 기록 유지
 const gMemo = new Set((store.get('gmemo', []) || []).filter(x => typeof x === 'string'));
 const saveGMemo = () => store.set('gmemo', [...gMemo]);
@@ -494,6 +509,7 @@ function Home(){
       <button class="card" id="mGram"><div class="big jp">文</div><div><h2>${IS_MAIN ? '필수 문형' : '기출 문형'}</h2><p>${IS_MAIN ? `${gdays[0]}~${gdays[gdays.length-1]} · ` : ''}암기 ${GRAMMAR.filter(g => gMemo.has(g.p)).length}/${GRAMMAR.length} · 빈칸 채우기 퀴즈</p></div></button>
       ${MEAN.length ? `<button class="card" id="mMean"><div class="big jp">義</div><div><h2>뜻이 비슷한 한자</h2><p>같은 뜻·같은 읽기 한자 ${MEAN.length}묶음 · 쓰임 구별 예문 · 퀴즈</p></div></button>` : ''}
       ${SIM.length ? `<button class="card" id="mSim"><div class="big jp">似</div><div><h2>비슷한 한자</h2><p>모양이 닮은 한자 ${SIM.length}묶음 · 구별 퀴즈</p></div></button>` : ''}
+      <button class="card" id="mMiss"><div class="big jp">苦</div><div><h2>개인 오답 단어장</h2><p>퀴즈에서 틀린 단어 ${missWords().length}개 · 틀린 횟수 순</p></div></button>
       <button class="card" id="mWrong"><div class="big jp">誤</div><div><h2>오답 복습</h2><p>틀린 단어만 다시 풀기 (${wrongSet.size}개)</p></div></button>
       ${IS_MAIN ? `<button class="card" id="mOther"><div class="big jp">過</div><div><h2>최신 기출 어휘·문형</h2><p>2021~2026 기출 · 별도 학습 기록</p></div></button>` : ''}
       <button class="card" id="mVoice"><div class="big jp">音</div><div><h2>음성 설정</h2><p>발음 음성·속도 선택</p></div></button>
@@ -514,12 +530,50 @@ function Home(){
   const ms = document.getElementById('mSim'); if (ms) ms.onclick = () => go(SimList);
   const mm = document.getElementById('mMean'); if (mm) mm.onclick = () => go(MeanList);
   document.getElementById('mBackup').onclick = () => go(BackupScreen);
+  document.getElementById('mMiss').onclick = () => go(MissBook);
   BK.banner(document.getElementById('bkBanner'), () => go(BackupScreen));
   const mo = document.getElementById('mOther'); if (mo) mo.onclick = () => { location.href = CONF.other; };
   document.getElementById('mWrong').onclick = () => {
     const list = WORDS.filter(w => wrongSet.has(w.id));
     if (!list.length) { alert('오답노트가 비어 있습니다.'); return; }
     go(Quiz, [list, '오답 복습', null]);
+  };
+}
+
+// ---------- 개인 오답 단어장 ----------
+let missSort = 'cnt';
+function MissBook(){
+  setHeader('개인 오답 단어장', true);
+  const all = missWords();
+  const cmpT = (a, b) => ((miss[missKey(b)] || {}).t || 0) - ((miss[missKey(a)] || {}).t || 0);
+  const list = missSort === 'many' ? all.filter(w => missOf(w) >= 3) : all.slice();
+  list.sort(missSort === 'recent' ? cmpT : (a, b) => missOf(b) - missOf(a) || cmpT(a, b));
+  const total = all.reduce((s, w) => s + missOf(w), 0);
+  view.innerHTML = `
+    <div class="toolbar">
+      <button class="pill ${missSort==='cnt'?'on':''}" data-s="cnt">많이 틀린 순 ${all.length}</button>
+      <button class="pill ${missSort==='recent'?'on':''}" data-s="recent">최근 틀린 순</button>
+      <button class="pill ${missSort==='many'?'on':''}" data-s="many">3번 이상 ${all.filter(w => missOf(w) >= 3).length}</button>
+    </div>
+    <div class="list">${list.map(w => `
+      <div class="card row ${memorized.has(w.id)?'done':''}" data-id="${w.id}">
+        <button class="chk ${memorized.has(w.id)?'on':''}" data-chk="${w.id}" aria-label="암기 체크">${memorized.has(w.id)?'✓':''}</button>
+        <div class="w jp">${esc(w.w)}${mBadge(w)}${w.r !== w.w ? `<small>${esc(w.r)}</small>` : ''}</div>
+        <div class="m">${esc(w.m)}</div>
+      </div>`).join('') || `<p class="note">${all.length ? '해당하는 단어가 없습니다.' : '아직 틀린 단어가 없어요. 퀴즈에서 틀린 단어가 여기에 자동으로 모이고, 틀린 횟수가 쌓입니다.'}</p>`}</div>
+    ${list.length ? `<div class="nav2"><button class="btn primary" id="mqz">이 목록으로 퀴즈 <small>${Math.min(list.length, 20)}</small></button></div>` : ''}
+    <p class="note">누적 오답 ${total}회 · 퀴즈(일차별·복습·오답 복습)에서 틀릴 때마다 +1, 맞혀도 줄지 않습니다.<br>
+    ✓ 체크는 단어 암기장과 같은 암기 표시입니다.${all.length ? ' <button class="linkbtn" id="mreset" type="button">오답 횟수 기록 지우기</button>' : ''}</p>`;
+  view.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { missSort = b.dataset.s; MissBook(); });
+  view.querySelectorAll('.row').forEach(r => r.onclick = e => {
+    const id = +r.dataset.id;
+    if (e.target.closest('[data-chk]')) { memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo(); MissBook(); return; }
+    go(Detail, [id, list.map(w => w.id)]);
+  });
+  const q = document.getElementById('mqz'); if (q) q.onclick = () => go(Quiz, [list.slice(0, 20), '개인 오답 단어장 퀴즈', null]);
+  const rs = document.getElementById('mreset'); if (rs) rs.onclick = () => {
+    if (!confirm(`틀린 횟수 기록 ${all.length}개 단어를 모두 지울까요? (암기 체크·복습 일정은 그대로)`)) return;
+    miss = {}; store.set('miss', miss); MissBook();
   };
 }
 
@@ -541,7 +595,7 @@ function Book(day){
     <div class="list">${list.map((w, i) => `${w.h && (i === 0 || list[i-1].h !== w.h) ? `<h2 class="sub cat">${esc(w.h)}</h2>` : ''}
       <div class="card row ${memorized.has(w.id)?'done':''}" data-id="${w.id}">
         <button class="chk ${memorized.has(w.id)?'on':''}" data-chk="${w.id}" aria-label="암기 체크">${memorized.has(w.id)?'✓':''}</button>
-        <div class="w jp">${esc(w.w)}${w.pred ? `<span class="pstar t${w.pred.tier}" title="출제 예상">${STAR(w.pred.tier)}</span>` : ''}${w.r !== w.w ? `<small>${esc(w.r)}</small>` : ''}</div>
+        <div class="w jp">${esc(w.w)}${w.pred ? `<span class="pstar t${w.pred.tier}" title="출제 예상">${STAR(w.pred.tier)}</span>` : ''}${mBadge(w)}${w.r !== w.w ? `<small>${esc(w.r)}</small>` : ''}</div>
         <div class="m">${esc(w.m)}</div>
       </div>`).join('') || '<p class="note">해당하는 단어가 없습니다.</p>'}</div>
     <div class="nav2 qparts">${qsetsOf(day).map(q => `<button class="btn primary" data-q="${esc(q.key)}">${esc(q.label)} 퀴즈${IS_MAIN ? ` <small>${q.words.length}</small>` : ' 풀기'}</button>`).join('')}</div>`;
@@ -606,7 +660,7 @@ function Detail(id, ids){
         <div class="word jp">${esc(w.w)}</div>
         ${w.r !== w.w ? `<div class="reading">${esc(w.r)}</div>` : ''}
         <div class="mean">${esc(w.m)}</div>
-        <div class="yrs">${w.pos ? `${esc(POS[w.pos] || w.pos)} · ` : ''}${w.years.length ? `기출 ${w.years.join(', ')}년 · ` : ''}${esc(srsLabel('w' + id))}</div>
+        <div class="yrs">${w.pos ? `${esc(POS[w.pos] || w.pos)} · ` : ''}${w.years.length ? `기출 ${w.years.join(', ')}년 · ` : ''}${esc(srsLabel('w' + id))}${missOf(w) ? ` · 퀴즈 오답 ${missOf(w)}회` : ''}</div>
         ${w.h ? `<div class="yrs">${esc(w.h)}</div>` : ''}
         ${w.pred ? `<div class="pred t${w.pred.tier}">${STAR(w.pred.tier)} 2026년 12월 출제 예상 <small>${esc(w.pred.why)}</small></div>` : ''}
         <button class="tts" id="tts">🔊 발음 듣기</button>
@@ -748,9 +802,11 @@ function Quiz(list, title, day){
     if (both) { score++; wrongSet.delete(st.w.id); } else { wrong.push(st.w); wrongSet.add(st.w.id); }
     srsGrade('w' + st.w.id, both);
     saveWrong();
+    const mc = both ? 0 : missAdd(st.w);   // 개인 오답 단어장 누적 +1
     const ex = EX[st.w.w];
     const fb = document.getElementById('fb');
     fb.innerHTML = `<div class="fb ${both?'ok':'ng'}">${both ? '⭕ 완벽!' : (ok ? '뜻은 맞았지만 읽기가 틀렸어요' : '❌ 뜻: ' + esc(st.w.m))}
+      ${mc ? `<div class="misscnt">📕 이 단어 <b>${mc}번째</b> 틀렸어요${mc >= 3 ? ' — 자주 틀리는 단어!' : ''}<br>메뉴의 <b>개인 오답 단어장</b>에 쌓아 두었으니 나중에 꼭 다시 학습하세요.</div>` : ''}
       ${ex ? `<div class="jp" style="margin-top:6px">${highlight(ex.s, st.w.w)}</div><div style="color:var(--sub);font-size:13px">${esc(ex.k)}</div>` : ''}</div>
       <div class="nav2"><button class="btn" id="info">한자 풀이</button><button class="btn primary" id="nx">${idx < qs.length-1 ? '다음 ›' : '결과 보기'}</button></div>`;
     document.getElementById('nx').onclick = next;
@@ -767,10 +823,12 @@ function Quiz(list, title, day){
     view.innerHTML = `
       <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
         <div class="score">${score} / ${qs.length}</div>
-        <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 단어 ${wrong.length}개는 오답노트에 저장됨`}</div></div>
+        <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 단어 ${wrong.length}개는 오답 복습과 개인 오답 단어장에 저장됨`}</div></div>
       ${wrong.length ? `<h2 class="sub">틀린 단어</h2><div class="list wrongs">${wrong.map(w => `
-        <button class="card row" data-id="${w.id}"><div class="w jp">${esc(w.w)}${w.r !== w.w ? `<small>${esc(w.r)}</small>` : ''}</div><div class="m">${esc(w.m)}</div></button>`).join('')}</div>` : ''}
-      <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">처음부터</button></div>`;
+        <button class="card row" data-id="${w.id}"><div class="w jp">${esc(w.w)}${mBadge(w)}${w.r !== w.w ? `<small>${esc(w.r)}</small>` : ''}</div><div class="m">${esc(w.m)}</div></button>`).join('')}</div>` : ''}
+      <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">처음부터</button></div>
+      ${wrong.length ? `<button class="linkbtn" id="toMiss" type="button" style="display:block;margin:10px auto 0">개인 오답 단어장 보기 ›</button>` : ''}`;
+    const tm = document.getElementById('toMiss'); if (tm) tm.onclick = () => go(MissBook);
     view.querySelectorAll('.wrongs .row').forEach(r => r.onclick = () => go(Detail, [+r.dataset.id, wrong.map(w => w.id)]));
     const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(Quiz, [wrong.slice(), title + ' (재도전)', null], true);
     document.getElementById('again').onclick = () => go(Quiz, [list, title, day], true);
