@@ -46,7 +46,7 @@ function makeBackup(opt){
     return data;
   }
   // 실제 학습 기록이 있는지(테마·음성 설정만 있는 경우는 백업 알림 대상 아님)
-  const hasLearning = data => Object.keys(data).some(k => /:(memo|wrong|srs|best|gbest)$/.test(k) && data[k] && data[k].length > 4);
+  const hasLearning = data => Object.keys(data).some(k => /:(memo|wrong|miss|srs|best|gbest)$/.test(k) && data[k] && data[k].length > 4);
   function summary(data){
     const c = {};
     for (const k of Object.keys(data)) { const app = k.split(':')[0]; c[app] = (c[app] || 0) + 1; }
