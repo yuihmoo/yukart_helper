@@ -56,10 +56,6 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
   background:var(--accent);color:var(--on-accent);font-weight:700;font-size:17px;box-shadow:0 6px 24px rgba(0,0,0,.2);
   opacity:0;pointer-events:none;transition:opacity .15s,transform .15s;z-index:20}
 .dtoast.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
-.swipe-l{animation:swl .18s ease-out}.swipe-r{animation:swr .18s ease-out}
-@keyframes swl{from{transform:translateX(40px);opacity:.4}to{transform:none;opacity:1}}
-@keyframes swr{from{transform:translateX(-40px);opacity:.4}to{transform:none;opacity:1}}
-@media (prefers-reduced-motion:reduce){.swipe-l,.swipe-r{animation:none}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
 .menu{display:grid;gap:12px;margin-top:8px}
 .menu .card{padding:18px 20px;text-align:left;display:flex;gap:16px;align-items:center;width:100%}
@@ -249,11 +245,12 @@ document.addEventListener('click', e => {
 // ---------- router ----------
 const view = document.getElementById('view'), titleEl = document.getElementById('title');
 let stack = [];
-function go(fn, args, replace){ if (replace) stack.pop(); stack.push([fn, args]); fn(...(args||[])); window.scrollTo(0, 0); }
+function go(fn, args, replace){ if (replace) stack.pop(); stack.push([fn, args]); try { ANIM.mark(replace ? 'next' : 'fwd', true); } catch(e) {} fn(...(args||[])); window.scrollTo(0, 0); }
 function back(){
   if (stack.length <= 1) { location.href = './index.html'; return; }
   stack.pop();
   const [fn, args] = stack[stack.length-1];
+  try { ANIM.mark('back'); } catch(e) {}
   if (fn === Quiz && Quiz._resume) { try { Quiz._resume(); return; } catch(e) {} }
   fn(...(args||[]));
 }
@@ -763,11 +760,8 @@ document.addEventListener('keydown', e => {
     const sel = getSelection && getSelection(); if (sel && String(sel).length) return;              // 글자 선택 중
     const b = dx < 0 ? (btn('nx') || btn('next')) : btn('prev');
     if (!b) return;
-    b.click();
-    view.classList.remove('swipe-l', 'swipe-r'); void view.offsetWidth;
-    view.classList.add(dx < 0 ? 'swipe-l' : 'swipe-r');
+    b.click();   // 슬라이드 애니메이션은 shared/theme.js(ANIM)가 처리
   }, {passive: true});
-  view.addEventListener('animationend', () => view.classList.remove('swipe-l', 'swipe-r'));
 })();
 
 // ---------- 더블탭: 단어 상세에서 화면을 두 번 톡톡 → '覚えた' (이미 외운 단어면 취소하지 않고 다음으로만) ----------
