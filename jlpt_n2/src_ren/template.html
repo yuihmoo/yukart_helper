@@ -711,7 +711,7 @@ function GQuiz(list, title, gday){
 function BackupScreen(){ setHeader('学習記録のバックアップ', true); BK.screen(view); }
 function VoiceSettings(){ setHeader('音声設定'); TTS.screen(view, esc); }
 
-// ---------- keyboard: ←/→ 이전·다음, Enter 외웠어요(상세)·다음 문제(퀴즈), 1~4 보기 선택(퀴즈)·1 발음·2 예문 듣기(상세), Backspace 이전 화면 ----------
+// ---------- keyboard: ←/→ 이전·다음, Enter 외웠어요(상세)·다음 문제(퀴즈), 1~4 보기 선택(퀴즈)·1 발음·2 예문·3~ 추가 예문 듣기(상세), Backspace 이전 화면 ----------
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
   const t = e.target;
@@ -726,11 +726,17 @@ document.addEventListener('keydown', e => {
     const m = btn('memo');
     b = btn('nx') || (m ? (m.classList.contains('primary') ? m : btn('next')) : null);
   }
-  else if (/^[1-4]$/.test(e.key)) {
-    const ch = view.querySelectorAll('.choice');
-    if (ch.length) b = ch[+e.key - 1] || null;                 // 퀴즈: 보기 선택
-    else if (!e.repeat && e.key === '1') b = btn('tts');       // 단어 상세: 1 발음 듣기
-    else if (!e.repeat && e.key === '2') b = btn('ttsEx');     //            2 예문 듣기
+  else if (/^[1-9]$/.test(e.key)) {
+    const n = +e.key, ch = view.querySelectorAll('.choice');
+    if (ch.length) b = n <= 4 ? ch[n - 1] || null : null;      // 퀴즈: 1~4 보기 선택
+    else if (!e.repeat) {
+      if (btn('ttsEx')) {                                      // 단어 상세: 1 발음 · 2 예문 · 3~ 추가 예문(2번째~)
+        b = n === 1 ? btn('tts') : n === 2 ? btn('ttsEx') : view.querySelectorAll('.xtts')[n - 3] || null;
+      } else {                                                 // 문형·뜻 비슷한 한자 상세: n번째 예문 🔊
+        const g = view.querySelectorAll('.gtts');
+        b = g.length ? g[n - 1] || null : (n === 1 ? btn('tts') : null);   // 예문 🔊가 없으면 1 = 발음 듣기
+      }
+    }
   }
   if (b) { e.preventDefault(); b.click(); }   // preventDefault: 포커스된 버튼의 Enter 기본 클릭과 중복 방지
 });
