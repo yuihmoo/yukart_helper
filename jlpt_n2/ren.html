@@ -390,6 +390,7 @@ a.pick{animation:anUp .32s cubic-bezier(.2,.8,.2,1) backwards}a.pick+a.pick{anim
       zoomL: '크기', bpos: '위치', center: '가운데', top: '위', bottom: '아래', left: '왼쪽', right: '오른쪽',
       color: '강조색', cTheme: '테마 기본', cAuto: '배경에서 자동', cCustom: '직접 고르기', cNote: '버튼·글자 대비가 충분하도록 밝기를 자동 보정합니다.', cNoBg: '배경 이미지를 넣으면 사용할 수 있어요',
       glass: '카드 투명도 (유리 효과)', bk: '꾸미기 백업', bkOut: '파일로 내보내기', bkIn: '파일에서 불러오기', bkNote: '이미지·설정·테마를 한 파일로 저장해 다른 기기로 옮길 수 있어요.',
+      ord: '메뉴 순서', up: '위로', down: '아래로', ordReset: '기본 순서로', ordNote: '▲▼ 버튼으로 홈 화면 메뉴의 순서를 바꿀 수 있어요.', noOrd: '홈 화면(메뉴가 보이는 화면)에서 열면 메뉴 순서를 바꿀 수 있어요.',
       bkDone: '불러오기 완료', bkBad: '꾸미기 백업 파일이 아니거나 손상되었습니다.', bkOk: '파일을 만들었습니다.'},
     ja: {t: 'マイ画像でデコる', close: '閉じる', bg: '背景画像', veil: 'ぼかし幕の濃さ（文字を読みやすく）', blur: '背景のぼかし', st: 'ステッカー（画面のすみ）', size: '大きさ',
       pos: '位置', br: '右下', bl: '左下', tr: '右上', cheer: '正解のごほうび画像', cheerOn: '正解したときに表示', miss: '不正解の画像', missOn: '間違えたときに表示', icons: 'メニューのアイコン',
@@ -400,6 +401,7 @@ a.pick{animation:anUp .32s cubic-bezier(.2,.8,.2,1) backwards}a.pick+a.pick{anim
       zoomL: '大きさ', bpos: '位置', center: '中央', top: '上', bottom: '下', left: '左', right: '右',
       color: 'アクセントカラー', cTheme: 'テーマのまま', cAuto: '背景から自動', cCustom: '自分で選ぶ', cNote: 'ボタンや文字が読みやすいよう、明るさを自動で調整します。', cNoBg: '背景画像を入れると使えます',
       glass: 'カードの透明度（ガラス効果）', bk: 'デコのバックアップ', bkOut: 'ファイルに書き出す', bkIn: 'ファイルから読み込む', bkNote: '画像・設定・テーマを1つのファイルにまとめて、別の端末に移せます。',
+      ord: 'メニューの順番', up: '上へ', down: '下へ', ordReset: '元の順番に戻す', ordNote: '▲▼ボタンでホーム画面のメニューの順番を変えられます。', noOrd: 'ホーム画面（メニューが見える画面）で開くと、メニューの順番を変えられます。',
       bkDone: '読み込みました', bkBad: 'デコのバックアップファイルではないか、壊れています。', bkOk: 'ファイルを作成しました。'}
   };
 
@@ -411,7 +413,17 @@ a.pick{animation:anUp .32s cubic-bezier(.2,.8,.2,1) backwards}a.pick+a.pick{anim
       stPos: ['br', 'bl', 'tr'].includes(c.stPos) ? c.stPos : DEF.stPos, cheer: c.cheer !== false, miss: c.miss !== false,
       bgFit: FITS.includes(c.bgFit) ? c.bgFit : DEF.bgFit, bgZoom: num(c.bgZoom, 20, 400, DEF.bgZoom), bgPos: BPOS.includes(c.bgPos) ? c.bgPos : DEF.bgPos,
       accentMode: ['theme', 'auto', 'custom'].includes(c.accentMode) ? c.accentMode : 'theme', accent: HEX.test(c.accent || '') ? c.accent : DEF.accent,
-      autoAccent: HEX.test(c.autoAccent || '') ? c.autoAccent : '', glass: num(c.glass, 0, 0.5, 0)};
+      autoAccent: HEX.test(c.autoAccent || '') ? c.autoAccent : '', glass: num(c.glass, 0, 0.5, 0), order: readOrder(c.order)};
+  }
+  // 메뉴 순서: {화면이름: [메뉴 id…]} — id 형식만 통과, 화면당 최대 40개
+  function readOrder(o){
+    const out = {}; if (!o || typeof o !== 'object' || Array.isArray(o)) return out;
+    for (const [k, v] of Object.entries(o).slice(0, 10)) {
+      if (!/^[\w.-]{1,40}$/.test(k) || !Array.isArray(v)) continue;
+      const ids = [...new Set(v.filter(x => typeof x === 'string' && /^[\w.-]{1,60}$/.test(x)))].slice(0, 40);
+      if (ids.length) out[k] = ids;
+    }
+    return out;
   }
   let cfg = readCfg();
   const saveCfg = () => { try { localStorage.setItem(SKEY, JSON.stringify(cfg)); } catch (e) {} };
@@ -498,6 +510,7 @@ html.deco-bg,html.deco-bg body{background:transparent!important;background-image
 .dsec h3{margin:0 0 8px;font-size:15px}
 .drow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .drow+.drow{margin-top:8px}
+.dord .dlab{flex:1 1 auto;min-width:0}.dmv{flex:0 0 auto;min-width:44px;min-height:40px;padding:6px 10px}.dmv:disabled{opacity:.35}
 .dthumb{width:56px;height:56px;border-radius:12px;border:1px solid var(--line);background:var(--chip) center/cover no-repeat;flex:0 0 auto;display:grid;place-items:center;font-size:22px;color:var(--sub);overflow:hidden}
 .dthumb.wide{width:84px}
 .dthumb.contain{background-size:contain}
@@ -561,9 +574,9 @@ html.deco-bg header.top{box-shadow:0 8px 20px -14px rgba(0,0,0,.35)}
   // 메뉴 항목: よん·れん 홈 카드(.menu .card[id] .big), 첫 화면(a.pick .badge)
   function menuItems(){
     const out = [];
-    document.querySelectorAll('.menu .card[id]').forEach(c => { const b = c.querySelector('.big'); if (b) out.push({id: c.id, el: b, label: (c.querySelector('h2') || c).textContent.trim()}); });
+    document.querySelectorAll('.menu .card[id]').forEach(c => { const b = c.querySelector('.big'); if (b) out.push({id: c.id, node: c, el: b, label: (c.querySelector('h2') || c).textContent.trim()}); });
     document.querySelectorAll('a.pick').forEach(a => { const b = a.querySelector('.badge'); const id = 'pick-' + ((a.getAttribute('href') || '').replace(/\.html?$/i, '') || 'x');
-      if (b) out.push({id, el: b, label: (a.querySelector('.name') || a).textContent.trim()}); });
+      if (b) out.push({id, node: a, el: b, label: (a.querySelector('.name') || a).textContent.trim()}); });
     return out;
   }
   function applyIcons(){
@@ -576,6 +589,21 @@ html.deco-bg header.top{box-shadow:0 8px 20px -14px rgba(0,0,0,.35)}
       } else if (img || m.el.hasAttribute('data-deco-orig')) {
         m.el.innerHTML = m.el.getAttribute('data-deco-orig') || ''; m.el.removeAttribute('data-deco-orig');
       }
+    }
+  }
+  // 저장된 순서대로 같은 부모 안의 메뉴를 재배치. 순서에 없는 메뉴(새로 생긴 메뉴 등)는 제자리 유지.
+  function applyOrder(){
+    const ord = (cfg.order || {})[APP]; if (!ord || !ord.length) return;
+    const rank = new Map(ord.map((id, i) => [id, i]));
+    const groups = new Map();
+    for (const m of menuItems()) { if (!m.node.parentNode) continue; const g = groups.get(m.node.parentNode) || []; g.push(m); groups.set(m.node.parentNode, g); }
+    for (const items of groups.values()) {
+      const known = items.filter(m => rank.has(m.id));
+      if (known.length < 2) continue;
+      const sorted = [...known].sort((a, b) => rank.get(a.id) - rank.get(b.id));
+      if (sorted.every((m, i) => m === known[i])) continue;   // 이미 정렬됨 → DOM 안 건드림(감시 루프 방지)
+      const marks = known.map(m => { const c = document.createComment('o'); m.node.parentNode.insertBefore(c, m.node); return c; });
+      marks.forEach((c, i) => c.replaceWith(sorted[i].node));
     }
   }
   let cheerT = 0;
@@ -660,7 +688,7 @@ html.deco-bg header.top{box-shadow:0 8px 20px -14px rgba(0,0,0,.35)}
     el.textContent = `:root:root:root{--card:${rgba(card)};--chip:${rgba(chip)}}
 html.deco-glass header.top{background:${rgba(bg)}!important}`;
   }
-  const applyAll = () => { applyBg(); applySticker(); applyIcons(); applyGlass(); applyAccent(); };
+  const applyAll = () => { applyBg(); applySticker(); applyOrder(); applyIcons(); applyGlass(); applyAccent(); };
 
   // 화면이 다시 그려질 때 아이콘 재적용 + 정답 피드백(.fb.ok)이 나타나면 축하 이미지
   let raf = 0;
@@ -672,7 +700,7 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
           if ((n.matches && n.matches('.fb.ok')) || (n.querySelector && n.querySelector('.fb.ok'))) { cheer('cheer'); break; }
           if ((n.matches && n.matches('.fb.ng')) || (n.querySelector && n.querySelector('.fb.ng'))) { cheer('miss'); break; }
         }
-        if (!raf) raf = requestAnimationFrame(() => { raf = 0; applyIcons(); });
+        if (!raf) raf = requestAnimationFrame(() => { raf = 0; applyOrder(); applyIcons(); });
       }).observe(document.body, {childList: true, subtree: true});
     } catch (e) {}
   }
@@ -767,6 +795,10 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
         <div class="dsec"><h3>${L.miss}<\/h3>
           <div class="drow">${thumb('miss', 'contain')}<div class="dlab"><\/div>${btns('miss')}<\/div>
           ${urls.get('miss') ? `<div class="drow"><label class="dlab"><input type="checkbox" data-cfg="miss" ${cfg.miss ? 'checked' : ''}> ${L.missOn}<\/label><button class="btn" data-test="miss">${L.test}<\/button><\/div>` : ''}<\/div>
+        <div class="dsec"><h3>${L.ord}<\/h3>
+          ${menus.length > 1 ? `<p class="dnote" style="margin-top:0">${L.ordNote}<\/p>${menus.map((m, i) => `<div class="drow dord"><span class="dlab">${i + 1}. ${esc(m.label)}<\/span>
+            <button class="btn dmv" data-mv="${i}" data-dir="-1" aria-label="${esc(m.label)} ${L.up}" ${i ? '' : 'disabled'}>▲<\/button><button class="btn dmv" data-mv="${i}" data-dir="1" aria-label="${esc(m.label)} ${L.down}" ${i < menus.length - 1 ? '' : 'disabled'}>▼<\/button><\/div>`).join('')}
+          ${(cfg.order || {})[APP] ? `<div class="drow"><button class="btn" data-ordreset>${L.ordReset}<\/button><\/div>` : ''}` : `<p class="dnote">${L.noOrd}<\/p>`}<\/div>
         <div class="dsec"><h3>${L.icons}<\/h3>
           ${menus.length ? menus.map(m => { const k = iconKey(m.id); return `<div class="drow">${urls.get(k) ? thumb(k) : `<div class="dthumb">${esc(m.el.getAttribute('data-deco-orig') ? '' : m.el.textContent.trim().slice(0, 2))}<\/div>`}<span class="dlab">${esc(m.label)}<\/span>${btns(k)}<\/div>`; }).join('')
             : `<p class="dnote">${L.noMenu}<\/p>`}<\/div>
@@ -794,6 +826,21 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
       const p = t.closest('[data-pick]'); if (p) { target = p.dataset.pick; file.click(); return; }
       const d = t.closest('[data-del]');
       if (d) { const k = d.dataset.del; try { await idbDel(k); } catch (err) {} setUrl(k, null); applyAll(); render(); return; }
+      const mv = t.closest('[data-mv]');
+      if (mv && !mv.disabled) {
+        const ids = menuItems().map(m => m.id), i = +mv.dataset.mv, j = i + (+mv.dataset.dir);
+        if (j < 0 || j >= ids.length || i < 0 || i >= ids.length) return;
+        [ids[i], ids[j]] = [ids[j], ids[i]];
+        const prevOrd = (cfg.order || {})[APP] || [];
+        cfg.order = {...(cfg.order || {}), [APP]: [...ids, ...prevOrd.filter(x => !ids.includes(x))].slice(0, 40)};   // 다른 화면 메뉴 순서는 유지
+        saveCfg(); applyOrder(); render();
+        const f = el.querySelector(`[data-mv="${j}"][data-dir="${mv.dataset.dir}"]`) || el.querySelector(`[data-mv="${j}"]`); if (f) f.focus();
+        return;
+      }
+      if (t.closest('[data-ordreset]')) {
+        const o = {...(cfg.order || {})}; delete o[APP]; cfg.order = o; saveCfg();
+        msg = L.ordReset + ' ✓'; msgOk = true; render(); setTimeout(() => location.reload(), 300); return;
+      }
       const tb = t.closest('[data-test]'); if (tb) { cheer(tb.dataset.test); return; }
       const am = t.closest('[data-am]');
       if (am && !am.disabled) { cfg.accentMode = am.dataset.am; saveCfg(); applyAccent(); render(); return; }
