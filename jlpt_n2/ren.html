@@ -905,7 +905,10 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
       bad: '상품 이름과 포인트(1 이상 숫자)를 입력해 주세요.', full: `상품은 최대 ${ITEM_MAX}개까지 만들 수 있어요.`,
       adj: '포인트 직접 조정', adjNote: '함께 정한 보너스·벌점을 직접 더하거나 뺄 수 있어요.', adjAmt: '+10 또는 -5', adjWhy: '사유 (선택)', adjBtn: '적용', adjBad: '0이 아닌 숫자를 입력해 주세요.',
       res: '이번 퀴즈', has: '보유',
-      r: {memo: '외웠어요', unmemo: '외웠어요 취소', ok: '정답', ng: '오답', bonus: '복습 30문제 완주 보너스', buy: '교환', adj: '직접 조정'}},
+      initT: '🎉 지금까지의 학습 기록을 포인트로 정산했어요', initMemo: n => `외웠어요 ${n}개 × ${RULE.memo}P`, initOk: n => `퀴즈 최고 기록 정답 ${n}개 × ${RULE.ok}P`,
+      initNg: n => `퀴즈 최고 기록 오답 ${n}개 × ${RULE.ng}P`, initSum: '정산 합계', initPaid: p => `이미 받은 외웠어요 포인트 ${p}P는 빼고 계산했어요.`,
+      initNote: '퀴즈는 세트별 최고 점수 기록만 남아 있어 그 기록을 기준으로 계산했어요. 복습 완주 보너스는 기록이 없어 제외했어요. 정산은 처음 한 번만 합니다.', ok: '확인',
+      r: {memo: '외웠어요', unmemo: '외웠어요 취소', ok: '정답', ng: '오답', bonus: '복습 30문제 완주 보너스', buy: '교환', adj: '직접 조정', init: '기존 학습 기록 최초 정산'}},
     ja: {pt: 'P', bal: '所持ポイント', shop: 'ポイントショップ', rules: 'ポイントのルール',
       ruleTxt: `「覚えた」チェック +${RULE.memo}P（取り消すと -${RULE.memo}P）<br>クイズ正解 +${RULE.ok}P · 不正解 ${RULE.ng}P<br>復習クイズ ${RULE.bonusN}問を最後まで解くとボーナス +${RULE.bonus}P`,
       items: '商品', empty: 'まだ商品がありません。下の「ショップ設定」で、ふたりで決めた商品を追加しましょう。', buy: '交換', short: 'P不足',
@@ -917,7 +920,10 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
       bad: '商品名とポイント（1以上の数字）を入力してください。', full: `商品は最大 ${ITEM_MAX} 個まで作れます。`,
       adj: 'ポイントを直接調整', adjNote: 'ふたりで決めたボーナスやペナルティを直接足したり引いたりできます。', adjAmt: '+10 や -5', adjWhy: '理由（任意）', adjBtn: '適用', adjBad: '0以外の数字を入力してください。',
       res: '今回', has: '所持',
-      r: {memo: '覚えた', unmemo: '覚えたを取り消し', ok: '正解', ng: '不正解', bonus: '復習30問クリアボーナス', buy: '交換', adj: '直接調整'}}
+      initT: '🎉 これまでの学習記録をポイントに精算しました', initMemo: n => `覚えた ${n}個 × ${RULE.memo}P`, initOk: n => `クイズ最高記録の正解 ${n}問 × ${RULE.ok}P`,
+      initNg: n => `クイズ最高記録の不正解 ${n}問 × ${RULE.ng}P`, initSum: '精算合計', initPaid: p => `すでにもらった「覚えた」ポイント ${p}P は差し引いて計算しました。`,
+      initNote: 'クイズはセットごとの最高記録しか残っていないため、その記録をもとに計算しました。復習クリアボーナスは記録がないため対象外です。精算は最初の1回だけです。', ok: 'OK',
+      r: {memo: '覚えた', unmemo: '覚えたを取り消し', ok: '正解', ng: '不正解', bonus: '復習30問クリアボーナス', buy: '交換', adj: '直接調整', init: 'これまでの学習記録の初回精算'}}
   };
   let NS = 'n2m', L = T.ko;
   const ls = {
@@ -929,7 +935,7 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
   // 저장값 검증 (백업 복원·직접 편집으로 깨진 값이 들어와도 화면이 죽지 않게)
   function wallet(){
     const w = ls.get('pts', {}); const log = Array.isArray(w.log) ? w.log.filter(x => x && typeof x === 'object').slice(-LOG_MAX) : [];
-    return {bal: int(w.bal), log: log.map(x => ({t: int(x.t), d: int(x.d), r: str(x.r, 60)}))};
+    return {bal: int(w.bal), log: log.map(x => ({t: int(x.t), d: int(x.d), r: str(x.r, 60), k: str(x.k, 2)}))};
   }
   function items(){
     const a = ls.get('shop', []); if (!Array.isArray(a)) return [];
@@ -945,9 +951,9 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
   // ---- 적립/차감 ----
-  function add(d, reason){
+  function add(d, reason, kind){
     d = int(d); if (!d) return 0;
-    const w = wallet(); w.bal += d; w.log.push({t: Date.now(), d, r: str(reason, 60)});
+    const w = wallet(); w.bal += d; w.log.push({t: Date.now(), d, r: str(reason, 60), k: str(kind, 2)});
     if (w.log.length > LOG_MAX) w.log = w.log.slice(-LOG_MAX);
     ls.set('pts', w); toast(d); refresh();
     return d;
@@ -972,11 +978,29 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
     bal: () => wallet().bal,
     add,
     // 외웠어요 체크/취소 (on=true: 체크)
-    memo(on, what){ return add(on ? RULE.memo : -RULE.memo, (on ? L.r.memo : L.r.unmemo) + (what ? ' · ' + what : '')); },
+    memo(on, what){ return add(on ? RULE.memo : -RULE.memo, (on ? L.r.memo : L.r.unmemo) + (what ? ' · ' + what : ''), 'm'); },
     // 퀴즈 1문항 채점 결과
-    quiz(ok, what){ return add(ok ? RULE.ok : RULE.ng, (ok ? L.r.ok : L.r.ng) + (what ? ' · ' + what : '')); },
+    quiz(ok, what){ return add(ok ? RULE.ok : RULE.ng, (ok ? L.r.ok : L.r.ng) + (what ? ' · ' + what : ''), 'q'); },
     // 복습 퀴즈 완주: 30문제 이상 세트를 끝까지 풀었을 때만 보너스
-    reviewDone(n){ return n >= RULE.bonusN ? add(RULE.bonus, L.r.bonus) : 0; },
+    reviewDone(n){ return n >= RULE.bonusN ? add(RULE.bonus, L.r.bonus, 'b') : 0; },
+    // 최초 1회 정산: 포인트 도입 전 학습 기록을 같은 규칙으로 환산 (지갑별 플래그 'ptsInit')
+    // rec = {memo: 외웠어요 개수, ok: 퀴즈 최고 기록의 정답 수, ng: 같은 기록의 오답 수}
+    settleOnce(rec){
+      if (ls.get('ptsInit', 0)) return false;
+      const n = k => Math.max(0, int(rec && rec[k]));
+      const memoN = n('memo'), okN = n('ok'), ngN = n('ng');
+      // 포인트 도입 뒤 이미 받은 외웠어요 포인트는 빼서 이중 지급 방지 (구 버전 로그는 사유 문구로 판별)
+      const memoRe = new RegExp('^(' + [T.ko.r.memo, T.ko.r.unmemo, T.ja.r.memo, T.ja.r.unmemo].join('|') + ')( · |$)');
+      const paid = wallet().log.filter(x => x.k === 'm' || (!x.k && memoRe.test(x.r))).reduce((a, x) => a + x.d, 0);
+      const memoP = Math.max(0, memoN * RULE.memo - paid), okP = okN * RULE.ok, ngP = ngN * RULE.ng;
+      const total = memoP + okP + ngP;
+      ls.set('ptsInit', Date.now());
+      if (total) add(total, L.r.init, 'i');
+      if (!memoN && !okN && !ngN) return true;   // 기록이 하나도 없는 새 설치 → 안내 창 없이 끝
+      const show = () => notice([[L.initMemo(memoN), memoP], [L.initOk(okN), okP], [L.initNg(ngN), ngP]], total, paid > 0 && memoN ? L.initPaid(paid) : '');
+      if (document.body) show(); else document.addEventListener('DOMContentLoaded', show);
+      return true;
+    },
     // 퀴즈 결과 화면용 한 줄: 이번 세트 증감 + 현재 잔액
     resLine(p){ p = int(p); const b = wallet().bal; return `<div class="ptsres">${L.res} <b class="${p < 0 ? 'neg' : 'pos'}">${p > 0 ? '+' : ''}${p}${L.pt}<\/b> · ${L.has} <b data-pts-bal class="${b < 0 ? 'neg' : ''}">${b}<\/b>${L.pt}<\/div>`; },
     screen
@@ -1038,7 +1062,7 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
         const it = items().find(i => i.id === x.dataset.buy); if (!it) return;
         if (wallet().bal < it.cost) { render(); return; }
         if (!confirm(L.buyQ(it.name, it.cost))) return;
-        add(-it.cost, L.r.buy + ' · ' + it.name);
+        add(-it.cost, L.r.buy + ' · ' + it.name, 's');
         const a = buys(); a.push({id: uid(), name: it.name, cost: it.cost, emoji: it.emoji, t: Date.now(), used: 0}); ls.set('buys', a.slice(-BUY_MAX));
         msg = L.bought(it.name); render(); return;
       }
@@ -1062,7 +1086,7 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
       if (f.matches('[data-adj]')) {
         const d = int(String(f.amt.value).replace(/[^\d+-]/g, '').replace(/(?!^)[+-]/g, ''));
         if (!d || Math.abs(d) > COST_MAX) { msg = L.adjBad; render(); return; }
-        add(d, L.r.adj + (str(f.why.value, NAME_MAX) ? ' · ' + str(f.why.value, NAME_MAX) : '')); msg = ''; render(); return;
+        add(d, L.r.adj + (str(f.why.value, NAME_MAX) ? ' · ' + str(f.why.value, NAME_MAX) : ''), 'a'); msg = ''; render(); return;
       }
       const v = readForm(f); if (!v) { msg = L.bad; render(); return; }
       const a = items();
@@ -1074,6 +1098,22 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
     render();
   }
 
+  function notice(lines, total, extra){
+    const old = document.getElementById('ptsInit'); if (old) old.remove();
+    const el = document.createElement('div'); el.id = 'ptsInit'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', L.initT);
+    const sg = v => `<b class="${v < 0 ? 'neg' : 'pos'}">${v > 0 ? '+' : ''}${v}${L.pt}<\/b>`;
+    el.innerHTML = `<div class="card"><h2>${L.initT}<\/h2>
+      ${lines.map(([t, v]) => `<div class="pi-row"><span>${esc(t)}<\/span>${sg(v)}<\/div>`).join('')}
+      <div class="pi-row pi-sum"><span>${L.initSum}<\/span>${sg(total)}<\/div>
+      <div class="pi-row"><span>${L.bal}<\/span><b>${wallet().bal}${L.pt}<\/b><\/div>
+      ${extra ? `<p class="note">${esc(extra)}<\/p>` : ''}<p class="note">${L.initNote}<\/p>
+      <button class="btn primary" data-ok style="width:100%">${L.ok}<\/button><\/div>`;
+    const close = () => { el.remove(); document.removeEventListener('keydown', onKey, true); };
+    const onKey = e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); close(); } };
+    el.addEventListener('click', e => { if (e.target === el || e.target.closest('[data-ok]')) close(); });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(el); const b = el.querySelector('[data-ok]'); if (b) b.focus();
+  }
   function injectCss(){
     if (document.getElementById('ptsCss')) return;
     const s = document.createElement('style'); s.id = 'ptsCss';
@@ -1110,7 +1150,14 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
 .pts-sm{flex:0 0 auto;min-width:40px;min-height:38px;padding:6px 8px}.pts-sm:disabled{opacity:.35}
 .pts-form{margin:6px 0}.pts-row{display:flex;gap:6px;align-items:center}.pts-row+.pts-row{margin-top:6px}
 .pts-row input{flex:1 1 auto;min-width:0;font:inherit;font-size:16px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--chip);color:var(--ink)}
-.pts-row .btn{flex:0 0 auto}`;
+.pts-row .btn{flex:0 0 auto}
+#ptsInit{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.4);display:grid;place-items:center;padding:16px}
+#ptsInit .card{width:100%;max-width:420px;padding:20px;max-height:90vh;overflow:auto}
+#ptsInit h2{font-size:17px;margin:0 0 12px}
+#ptsInit .pi-row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
+#ptsInit .pi-sum{font-weight:700}
+#ptsInit .pos{color:var(--ok,#2a8a4a)}#ptsInit .neg{color:var(--ng,#c0392b)}
+#ptsInit .note{font-size:13px;margin:10px 0}`;
     (document.head || document.documentElement).appendChild(s);
   }
   window.PTS = api;
@@ -1648,6 +1695,20 @@ const setHeader = t => { titleEl.textContent = t; };
 
 // ---------- state & SRS ----------
 PTS.init({ns: 'ren', lang: 'ja'});   // 포인트 지갑 (よん은 메인·기출 공통)
+// 포인트 최초 정산: 포인트 도입 전 학습 기록(외웠어요·퀴즈 최고 기록)을 같은 규칙으로 1회 환산 — 앱을 켜면 자동, 이후엔 다시 안 함
+(function(){
+  const rd = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch(e){ return d; } };
+  let memo = 0, ok = 0, ng = 0;
+  const bestSum = o => { if (!o || typeof o !== 'object') return;
+    for (const v of Object.values(o)) if (v && Number.isInteger(v.score) && Number.isInteger(v.total) && v.score >= 0 && v.total >= v.score && v.total <= 500) { ok += v.score; ng += v.total - v.score; } };
+  for (const p of ['ren:']) {
+    const m = rd(p + 'memo', []), g = rd(p + 'gmemo', []);
+    memo += (Array.isArray(m) ? new Set(m).size : 0) + (Array.isArray(g) ? new Set(g).size : 0);
+    bestSum(rd(p + 'best', {})); bestSum(rd(p + 'gbest', {}));
+    const sb = rd(p + 'simBest', null); if (sb) bestSum({s: sb});
+  }
+  PTS.settleOnce({memo, ok, ng});
+})();
 const memorized = new Set(store.get('memo', []));
 const wrongSet = new Set(store.get('wrong', []));
 const saveMemo = () => store.set('memo', [...memorized]);
