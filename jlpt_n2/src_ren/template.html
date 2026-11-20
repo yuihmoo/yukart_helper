@@ -263,6 +263,20 @@ const setHeader = t => { titleEl.textContent = t; };
 
 // ---------- state & SRS ----------
 PTS.init({ns: 'ren', lang: 'ja'});   // 포인트 지갑 (よん은 메인·기출 공통)
+// 포인트 최초 정산: 포인트 도입 전 학습 기록(외웠어요·퀴즈 최고 기록)을 같은 규칙으로 1회 환산 — 앱을 켜면 자동, 이후엔 다시 안 함
+(function(){
+  const rd = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch(e){ return d; } };
+  let memo = 0, ok = 0, ng = 0;
+  const bestSum = o => { if (!o || typeof o !== 'object') return;
+    for (const v of Object.values(o)) if (v && Number.isInteger(v.score) && Number.isInteger(v.total) && v.score >= 0 && v.total >= v.score && v.total <= 500) { ok += v.score; ng += v.total - v.score; } };
+  for (const p of ['ren:']) {
+    const m = rd(p + 'memo', []), g = rd(p + 'gmemo', []);
+    memo += (Array.isArray(m) ? new Set(m).size : 0) + (Array.isArray(g) ? new Set(g).size : 0);
+    bestSum(rd(p + 'best', {})); bestSum(rd(p + 'gbest', {}));
+    const sb = rd(p + 'simBest', null); if (sb) bestSum({s: sb});
+  }
+  PTS.settleOnce({memo, ok, ng});
+})();
 const memorized = new Set(store.get('memo', []));
 const wrongSet = new Set(store.get('wrong', []));
 const saveMemo = () => store.set('memo', [...memorized]);
