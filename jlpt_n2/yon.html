@@ -906,6 +906,237 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
   }
   window.DECO = {open, apply: applyAll};
 })();
+
+// ---------- 포인트 · 포인트 상점 (よん·れん 공통) ----------
+// 지갑은 앱별로 따로: よん(메인·기출 공통) 'n2m:pts', れん 'ren:pts' → 학습 기록 백업(backup.js)에 함께 포함됨.
+// 적립: 외웠어요 +5(취소 시 -5) · 퀴즈 정답 +1 / 오답 -3 · 복습 퀴즈 30문제 완주 보너스 +10
+// 상점: 상품은 사용자가 직접 추가·수정·삭제·순서 변경. 교환한 상품은 '쿠폰'으로 남고 사용 완료 표시 가능.
+(function(){
+  if (window.PTS) return;
+  const RULE = {memo: 5, ok: 1, ng: -3, bonus: 10, bonusN: 30};
+  const LOG_MAX = 300, ITEM_MAX = 60, BUY_MAX = 300, NAME_MAX = 40, COST_MAX = 1000000;
+  const T = {
+    ko: {pt: 'P', bal: '보유 포인트', shop: '포인트 상점', rules: '적립 규칙',
+      ruleTxt: `외웠어요 체크 +${RULE.memo}P (체크 취소 시 -${RULE.memo}P)<br>퀴즈 정답 +${RULE.ok}P · 오답 ${RULE.ng}P<br>복습 퀴즈 ${RULE.bonusN}문제 완주 시 보너스 +${RULE.bonus}P`,
+      items: '상품', empty: '아직 상품이 없어요. 아래 「상점 설정」에서 함께 정한 상품을 추가해 보세요.', buy: '교환', short: 'P 부족',
+      buyQ: (n, c) => `「${n}」을(를) ${c}P로 교환할까요?`, bought: n => `「${n}」 교환 완료! 쿠폰함에 저장했어요.`,
+      coupons: '내 쿠폰함', noCoupon: '교환한 쿠폰이 없어요.', use: '사용 완료', used: '사용함', unuse: '되돌리기', del: '삭제', delQ: '이 쿠폰을 삭제할까요? (포인트는 돌아오지 않아요)',
+      log: '포인트 내역', noLog: '아직 내역이 없어요.', more: '더 보기',
+      set: '상점 설정', setDone: '설정 닫기', add: '상품 추가', name: '상품 이름', cost: '필요 포인트', emoji: '아이콘', save: '저장',
+      itemDelQ: n => `상품 「${n}」을(를) 삭제할까요? (이미 교환한 쿠폰은 그대로 남아요)`, up: '위로', down: '아래로', edit: '수정', cancel: '취소',
+      bad: '상품 이름과 포인트(1 이상 숫자)를 입력해 주세요.', full: `상품은 최대 ${ITEM_MAX}개까지 만들 수 있어요.`,
+      adj: '포인트 직접 조정', adjNote: '함께 정한 보너스·벌점을 직접 더하거나 뺄 수 있어요.', adjAmt: '+10 또는 -5', adjWhy: '사유 (선택)', adjBtn: '적용', adjBad: '0이 아닌 숫자를 입력해 주세요.',
+      res: '이번 퀴즈', has: '보유',
+      r: {memo: '외웠어요', unmemo: '외웠어요 취소', ok: '정답', ng: '오답', bonus: '복습 30문제 완주 보너스', buy: '교환', adj: '직접 조정'}},
+    ja: {pt: 'P', bal: '所持ポイント', shop: 'ポイントショップ', rules: 'ポイントのルール',
+      ruleTxt: `「覚えた」チェック +${RULE.memo}P（取り消すと -${RULE.memo}P）<br>クイズ正解 +${RULE.ok}P · 不正解 ${RULE.ng}P<br>復習クイズ ${RULE.bonusN}問を最後まで解くとボーナス +${RULE.bonus}P`,
+      items: '商品', empty: 'まだ商品がありません。下の「ショップ設定」で、ふたりで決めた商品を追加しましょう。', buy: '交換', short: 'P不足',
+      buyQ: (n, c) => `「${n}」を ${c}P で交換しますか？`, bought: n => `「${n}」を交換しました！クーポン箱に保存しました。`,
+      coupons: 'マイクーポン箱', noCoupon: '交換したクーポンはありません。', use: '使用済みにする', used: '使用済み', unuse: '戻す', del: '削除', delQ: 'このクーポンを削除しますか？（ポイントは戻りません）',
+      log: 'ポイント履歴', noLog: 'まだ履歴がありません。', more: 'もっと見る',
+      set: 'ショップ設定', setDone: '設定を閉じる', add: '商品を追加', name: '商品名', cost: '必要ポイント', emoji: 'アイコン', save: '保存',
+      itemDelQ: n => `商品「${n}」を削除しますか？（交換済みのクーポンはそのまま残ります）`, up: '上へ', down: '下へ', edit: '編集', cancel: 'キャンセル',
+      bad: '商品名とポイント（1以上の数字）を入力してください。', full: `商品は最大 ${ITEM_MAX} 個まで作れます。`,
+      adj: 'ポイントを直接調整', adjNote: 'ふたりで決めたボーナスやペナルティを直接足したり引いたりできます。', adjAmt: '+10 や -5', adjWhy: '理由（任意）', adjBtn: '適用', adjBad: '0以外の数字を入力してください。',
+      res: '今回', has: '所持',
+      r: {memo: '覚えた', unmemo: '覚えたを取り消し', ok: '正解', ng: '不正解', bonus: '復習30問クリアボーナス', buy: '交換', adj: '直接調整'}}
+  };
+  let NS = 'n2m', L = T.ko;
+  const ls = {
+    get(k, d){ try { const v = localStorage.getItem(NS + ':' + k); if (v == null) return d; const j = JSON.parse(v); return j == null ? d : j; } catch (e) { return d; } },
+    set(k, v){ try { localStorage.setItem(NS + ':' + k, JSON.stringify(v)); } catch (e) {} }
+  };
+  const int = v => { v = Math.round(+v); return isFinite(v) ? v : 0; };
+  const str = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
+  // 저장값 검증 (백업 복원·직접 편집으로 깨진 값이 들어와도 화면이 죽지 않게)
+  function wallet(){
+    const w = ls.get('pts', {}); const log = Array.isArray(w.log) ? w.log.filter(x => x && typeof x === 'object').slice(-LOG_MAX) : [];
+    return {bal: int(w.bal), log: log.map(x => ({t: int(x.t), d: int(x.d), r: str(x.r, 60)}))};
+  }
+  function items(){
+    const a = ls.get('shop', []); if (!Array.isArray(a)) return [];
+    const seen = new Set();
+    return a.filter(x => x && typeof x === 'object').map(x => ({id: str(x.id, 20), name: str(x.name, NAME_MAX), cost: Math.min(COST_MAX, Math.max(1, int(x.cost))), emoji: str(x.emoji, 8)}))
+      .filter(x => x.id && x.name && !seen.has(x.id) && seen.add(x.id)).slice(0, ITEM_MAX);
+  }
+  function buys(){
+    const a = ls.get('buys', []); if (!Array.isArray(a)) return [];
+    return a.filter(x => x && typeof x === 'object').map(x => ({id: str(x.id, 20), name: str(x.name, NAME_MAX), cost: int(x.cost), emoji: str(x.emoji, 8), t: int(x.t), used: int(x.used)}))
+      .filter(x => x.id && x.name).slice(-BUY_MAX);
+  }
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  // ---- 적립/차감 ----
+  function add(d, reason){
+    d = int(d); if (!d) return 0;
+    const w = wallet(); w.bal += d; w.log.push({t: Date.now(), d, r: str(reason, 60)});
+    if (w.log.length > LOG_MAX) w.log = w.log.slice(-LOG_MAX);
+    ls.set('pts', w); toast(d); refresh();
+    return d;
+  }
+  let tt = 0, acc = 0;
+  function toast(d){
+    if (!document.body) return;
+    let el = document.getElementById('ptsToast');
+    if (!el) { el = document.createElement('div'); el.id = 'ptsToast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); acc = 0; }
+    acc += d;
+    el.className = acc >= 0 ? 'up' : 'down';
+    el.textContent = `${acc > 0 ? '+' : ''}${acc}${L.pt} · ${L.bal} ${wallet().bal}${L.pt}`;
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    clearTimeout(tt); tt = setTimeout(() => { el.classList.remove('show'); acc = 0; }, 1600);
+  }
+  // 화면에 떠 있는 잔액 표시(data-pts-bal)를 갱신
+  function refresh(){ const b = wallet().bal; document.querySelectorAll('[data-pts-bal]').forEach(e => { e.textContent = b; e.classList.toggle('neg', b < 0); }); }
+
+  const api = {
+    RULE,
+    init(o){ NS = /^[\w-]{1,10}$/.test(o && o.ns) ? o.ns : 'n2m'; L = T[o && o.lang === 'ja' ? 'ja' : 'ko']; injectCss(); },
+    bal: () => wallet().bal,
+    add,
+    // 외웠어요 체크/취소 (on=true: 체크)
+    memo(on, what){ return add(on ? RULE.memo : -RULE.memo, (on ? L.r.memo : L.r.unmemo) + (what ? ' · ' + what : '')); },
+    // 퀴즈 1문항 채점 결과
+    quiz(ok, what){ return add(ok ? RULE.ok : RULE.ng, (ok ? L.r.ok : L.r.ng) + (what ? ' · ' + what : '')); },
+    // 복습 퀴즈 완주: 30문제 이상 세트를 끝까지 풀었을 때만 보너스
+    reviewDone(n){ return n >= RULE.bonusN ? add(RULE.bonus, L.r.bonus) : 0; },
+    // 퀴즈 결과 화면용 한 줄: 이번 세트 증감 + 현재 잔액
+    resLine(p){ p = int(p); const b = wallet().bal; return `<div class="ptsres">${L.res} <b class="${p < 0 ? 'neg' : 'pos'}">${p > 0 ? '+' : ''}${p}${L.pt}<\/b> · ${L.has} <b data-pts-bal class="${b < 0 ? 'neg' : ''}">${b}<\/b>${L.pt}<\/div>`; },
+    screen
+  };
+
+  // ---- 상점 화면 ----
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function fmtT(t){ const d = new Date(t); return isFinite(d) ? `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : ''; }
+  let setMode = false, editId = null, logN = 20, msg = '';
+  function screen(host){
+    setMode = false; editId = null; logN = 20; msg = '';
+    // 이벤트는 상점 전용 래퍼에만 연결 (공용 view에 걸면 다른 화면의 폼·버튼까지 가로챔)
+    host.innerHTML = '<div class="pts-wrap"><\/div>'; const view = host.firstChild;
+    const render = () => {
+      const w = wallet(), its = items(), bs = buys().slice().reverse();
+      view.innerHTML = `
+        <div class="card pts-bal"><span>${L.bal}<\/span><b data-pts-bal class="${w.bal < 0 ? 'neg' : ''}">${w.bal}<\/b><span>${L.pt}<\/span><\/div>
+        <div class="pts-msg" role="status">${esc(msg)}<\/div>
+        <h2 class="sub">${L.items}<\/h2>
+        ${its.length ? `<div class="pts-items">${its.map(x => `<div class="card pts-item"><div class="pts-em">${esc(x.emoji || '🎁')}<\/div>
+            <div class="pts-nm"><b>${esc(x.name)}<\/b><span>${x.cost}${L.pt}<\/span><\/div>
+            <button class="btn primary" data-buy="${esc(x.id)}" ${w.bal >= x.cost ? '' : 'disabled'}>${w.bal >= x.cost ? L.buy : L.short}<\/button><\/div>`).join('')}<\/div>`
+          : `<p class="note">${L.empty}<\/p>`}
+        <h2 class="sub">${L.coupons}<\/h2>
+        ${bs.length ? `<div class="pts-items">${bs.map(x => `<div class="card pts-item ${x.used ? 'used' : ''}"><div class="pts-em">${esc(x.emoji || '🎟️')}<\/div>
+            <div class="pts-nm"><b>${esc(x.name)}<\/b><span>${fmtT(x.t)} · ${x.cost}${L.pt}${x.used ? ` · ${L.used} ${fmtT(x.used)}` : ''}<\/span><\/div>
+            <button class="btn" data-use="${esc(x.id)}">${x.used ? L.unuse : L.use}<\/button><button class="btn pts-x" data-cdel="${esc(x.id)}" aria-label="${L.del}">✕<\/button><\/div>`).join('')}<\/div>`
+          : `<p class="note">${L.noCoupon}<\/p>`}
+        <details class="pts-det"><summary>${L.log}<\/summary>
+          ${w.log.length ? `<div class="pts-log">${w.log.slice().reverse().slice(0, logN).map(x => `<div><span>${fmtT(x.t)}<\/span><span>${esc(x.r)}<\/span><b class="${x.d < 0 ? 'neg' : 'pos'}">${x.d > 0 ? '+' : ''}${x.d}<\/b><\/div>`).join('')}<\/div>
+            ${w.log.length > logN ? `<button class="linkbtn" data-more type="button">${L.more}<\/button>` : ''}` : `<p class="note">${L.noLog}<\/p>`}<\/details>
+        <details class="pts-det"><summary>${L.rules}<\/summary><p class="note" style="margin:8px 0 0">${L.ruleTxt}<\/p><\/details>
+        <div class="nav2"><button class="btn" data-set>${setMode ? L.setDone : '⚙️ ' + L.set}<\/button><\/div>
+        ${setMode ? settings(its) : ''}`;
+      if (logN > 20) { const d = view.querySelector('.pts-det'); if (d) d.open = true; }
+    };
+    const settings = its => `<div class="card pts-set">
+        <h3>${L.set}<\/h3>
+        ${its.map((x, i) => editId === x.id ? `<form class="pts-form" data-edit="${esc(x.id)}">${fields(x)}<div class="pts-row"><button class="btn primary">${L.save}<\/button><button class="btn" type="button" data-cancel>${L.cancel}<\/button><\/div><\/form>`
+          : `<div class="pts-srow"><span class="pts-em">${esc(x.emoji || '🎁')}<\/span><span class="pts-snm">${esc(x.name)} <small>${x.cost}${L.pt}<\/small><\/span>
+            <button class="btn pts-sm" data-mv="${i}" data-d="-1" aria-label="${L.up}" ${i ? '' : 'disabled'}>▲<\/button><button class="btn pts-sm" data-mv="${i}" data-d="1" aria-label="${L.down}" ${i < its.length - 1 ? '' : 'disabled'}>▼<\/button>
+            <button class="btn pts-sm" data-ed="${esc(x.id)}">${L.edit}<\/button><button class="btn pts-sm" data-idel="${esc(x.id)}" aria-label="${L.del}">✕<\/button><\/div>`).join('')}
+        <h3>${L.add}<\/h3>
+        <form class="pts-form" data-new>${fields({emoji: '', name: '', cost: ''})}<div class="pts-row"><button class="btn primary">${L.add}<\/button><\/div><\/form>
+        <h3>${L.adj}<\/h3><p class="note" style="margin:0 0 8px">${L.adjNote}<\/p>
+        <form class="pts-form" data-adj><div class="pts-row"><input name="amt" inputmode="numeric" placeholder="${L.adjAmt}" aria-label="${L.adjAmt}" style="flex:0 0 110px">
+          <input name="why" maxlength="${NAME_MAX}" placeholder="${L.adjWhy}" aria-label="${L.adjWhy}"><button class="btn">${L.adjBtn}<\/button><\/div><\/form><\/div>`;
+    const fields = x => `<div class="pts-row"><input name="emoji" maxlength="8" value="${esc(x.emoji)}" placeholder="🎁" aria-label="${L.emoji}" style="flex:0 0 56px;text-align:center">
+        <input name="name" maxlength="${NAME_MAX}" value="${esc(x.name)}" placeholder="${L.name}" aria-label="${L.name}" required>
+        <input name="cost" inputmode="numeric" value="${esc(x.cost)}" placeholder="${L.cost}" aria-label="${L.cost}" style="flex:0 0 90px" required><\/div>`;
+    const readForm = f => {
+      const name = str(f.name.value, NAME_MAX), cost = int(String(f.cost.value).replace(/[^\d]/g, '')), emoji = str(f.emoji.value, 8);
+      return name && cost >= 1 && cost <= COST_MAX ? {name, cost, emoji} : null;
+    };
+    view.onclick = e => {
+      const t = e.target, b = s => t.closest(s);
+      let x;
+      if ((x = b('[data-buy]')) && !x.disabled) {
+        const it = items().find(i => i.id === x.dataset.buy); if (!it) return;
+        if (wallet().bal < it.cost) { render(); return; }
+        if (!confirm(L.buyQ(it.name, it.cost))) return;
+        add(-it.cost, L.r.buy + ' · ' + it.name);
+        const a = buys(); a.push({id: uid(), name: it.name, cost: it.cost, emoji: it.emoji, t: Date.now(), used: 0}); ls.set('buys', a.slice(-BUY_MAX));
+        msg = L.bought(it.name); render(); return;
+      }
+      if ((x = b('[data-use]'))) { const a = buys(), c = a.find(i => i.id === x.dataset.use); if (c) { c.used = c.used ? 0 : Date.now(); ls.set('buys', a); } msg = ''; render(); return; }
+      if ((x = b('[data-cdel]'))) { if (!confirm(L.delQ)) return; ls.set('buys', buys().filter(i => i.id !== x.dataset.cdel)); msg = ''; render(); return; }
+      if (b('[data-more]')) { logN += 50; render(); return; }
+      if (b('[data-set]')) { setMode = !setMode; editId = null; msg = ''; render(); if (setMode) { const s = view.querySelector('.pts-set'); if (s) s.scrollIntoView({block: 'start', behavior: 'smooth'}); } return; }
+      if ((x = b('[data-mv]')) && !x.disabled) {
+        const a = items(), i = +x.dataset.mv, j = i + (+x.dataset.d);
+        if (i < 0 || j < 0 || i >= a.length || j >= a.length) return;
+        [a[i], a[j]] = [a[j], a[i]]; ls.set('shop', a); render();
+        const f = view.querySelector(`[data-mv="${j}"][data-d="${x.dataset.d}"]`) || view.querySelector(`[data-mv="${j}"]`); if (f) f.focus();
+        return;
+      }
+      if ((x = b('[data-ed]'))) { editId = x.dataset.ed; render(); const f = view.querySelector('[data-edit] input[name="name"]'); if (f) f.focus(); return; }
+      if (b('[data-cancel]')) { editId = null; render(); return; }
+      if ((x = b('[data-idel]'))) { const it = items().find(i => i.id === x.dataset.idel); if (!it || !confirm(L.itemDelQ(it.name))) return; ls.set('shop', items().filter(i => i.id !== it.id)); render(); }
+    };
+    view.onsubmit = e => {
+      const f = e.target; e.preventDefault();
+      if (f.matches('[data-adj]')) {
+        const d = int(String(f.amt.value).replace(/[^\d+-]/g, '').replace(/(?!^)[+-]/g, ''));
+        if (!d || Math.abs(d) > COST_MAX) { msg = L.adjBad; render(); return; }
+        add(d, L.r.adj + (str(f.why.value, NAME_MAX) ? ' · ' + str(f.why.value, NAME_MAX) : '')); msg = ''; render(); return;
+      }
+      const v = readForm(f); if (!v) { msg = L.bad; render(); return; }
+      const a = items();
+      if (f.matches('[data-new]')) { if (a.length >= ITEM_MAX) { msg = L.full; render(); return; } a.push({id: uid(), ...v}); }
+      else if (f.matches('[data-edit]')) { const it = a.find(i => i.id === f.dataset.edit); if (it) Object.assign(it, v); editId = null; }
+      ls.set('shop', a); msg = ''; render();
+      if (f.matches('[data-new]')) { const n = view.querySelector('[data-new] input[name="name"]'); if (n) n.focus(); }
+    };
+    render();
+  }
+
+  function injectCss(){
+    if (document.getElementById('ptsCss')) return;
+    const s = document.createElement('style'); s.id = 'ptsCss';
+    s.textContent = `
+#ptsToast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 64px);transform:translate(-50%,-12px);opacity:0;z-index:60;pointer-events:none;
+  padding:8px 16px;border-radius:999px;font-weight:700;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.18);transition:opacity .2s,transform .25s;white-space:nowrap;
+  background:var(--card);color:var(--ink);border:1px solid var(--line)}
+#ptsToast.up{color:var(--ok,#2a8a4a)}#ptsToast.down{color:var(--ng,#c0392b)}
+#ptsToast.show{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){#ptsToast{transition:none}}
+.pts-bal{display:flex;align-items:baseline;justify-content:center;gap:8px;padding:20px;font-size:15px;color:var(--sub)}
+.pts-bal b{font-size:40px;color:var(--accent);font-variant-numeric:tabular-nums}
+.pts-bal b.neg,[data-pts-bal].neg,.pts-log .neg{color:var(--ng,#c0392b)}
+.pts-log .pos,.ptsres .pos{color:var(--ok,#2a8a4a)}.ptsres .neg{color:var(--ng,#c0392b)}
+.ptsres{margin-top:8px;color:var(--sub);font-size:14px}
+.pts-msg{min-height:1.2em;text-align:center;color:var(--accent);font-size:14px;margin:6px 0}
+.pts-items{display:grid;gap:8px}
+.pts-item{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.pts-item.used{opacity:.55}
+.pts-em{font-size:26px;width:36px;text-align:center;flex:0 0 auto}
+.pts-nm{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
+.pts-nm b{overflow-wrap:anywhere}.pts-nm span{color:var(--sub);font-size:13px}
+.pts-item .btn{flex:0 0 auto;min-height:40px;padding:8px 12px}
+.pts-item .btn:disabled{opacity:.5}
+.pts-x{min-width:40px}
+.pts-det{margin-top:14px}.pts-det summary{cursor:pointer;font-weight:700;padding:6px 0}
+.pts-log{display:grid;gap:4px;font-size:13px;margin-top:6px}
+.pts-log div{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+.pts-log div span:first-child{color:var(--sub);flex:0 0 78px}.pts-log div span:nth-child(2){flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+.pts-log b{flex:0 0 auto;font-variant-numeric:tabular-nums}
+.pts-set{padding:16px;margin-top:12px}.pts-set h3{font-size:15px;margin:14px 0 8px}.pts-set h3:first-child{margin-top:0}
+.pts-srow{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--line)}
+.pts-snm{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}.pts-snm small{color:var(--sub)}
+.pts-sm{flex:0 0 auto;min-width:40px;min-height:38px;padding:6px 8px}.pts-sm:disabled{opacity:.35}
+.pts-form{margin:6px 0}.pts-row{display:flex;gap:6px;align-items:center}.pts-row+.pts-row{margin-top:6px}
+.pts-row input{flex:1 1 auto;min-width:0;font:inherit;font-size:16px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--chip);color:var(--ink)}
+.pts-row .btn{flex:0 0 auto}`;
+    (document.head || document.documentElement).appendChild(s);
+  }
+  window.PTS = api;
+})();
 </script>
 </head>
 <body>
@@ -1591,10 +1822,13 @@ backBtn.onclick = back;
 function setHeader(t, canBack){ titleEl.textContent = t; backBtn.classList.toggle('hidden', !canBack); }
 
 // ---------- state ----------
+PTS.init({ns: 'n2m', lang: 'ko'});   // 포인트 지갑 (よん은 메인·기출 공통)
 const memorized = new Set(store.get('memo', []));
 const wrongSet = new Set(store.get('wrong', []));
 const best = store.get('best', {});
 const saveMemo = () => store.set('memo', [...memorized]);
+// 외웠어요 체크/취소 + 포인트(+5 / 취소 -5)
+function toggleMemo(id){ const on = !memorized.has(id); on ? memorized.add(id) : memorized.delete(id); saveMemo(); const w = WORDS[id]; PTS.memo(on, w ? w.w : ''); }
 const saveWrong = () => store.set('wrong', [...wrongSet]);
 // 개인 오답 단어장: 퀴즈에서 틀릴 때마다 단어별 누적 횟수 +1 (맞혀도 줄지 않음). 키는 표기|읽기 → 데이터 순서가 바뀌어도 유지
 const missKey = w => w.w + '|' + w.r;
@@ -1610,6 +1844,7 @@ const mBadge = w => { const n = missOf(w); return n ? `<span class="mbadge" titl
 // 문형 암기 체크 (단어장과 같은 방식). 키는 문형 문자열 → 순서가 바뀌어도 기록 유지
 const gMemo = new Set((store.get('gmemo', []) || []).filter(x => typeof x === 'string'));
 const saveGMemo = () => store.set('gmemo', [...gMemo]);
+function toggleGMemo(key, label){ const on = !gMemo.has(key); on ? gMemo.add(key) : gMemo.delete(key); saveGMemo(); PTS.memo(on, label); }
 let gFilter = 'all';
 
 // ---------- SRS (간격 반복, SM-2 간소화) ----------
@@ -1671,6 +1906,7 @@ function Home(){
       <button class="card" id="mWrong"><div class="big jp">誤</div><div><h2>오답 복습</h2><p>틀린 단어만 다시 풀기 (${wrongSet.size}개)</p></div></button>
       ${IS_MAIN ? `<button class="card" id="mOther"><div class="big jp">過</div><div><h2>최신 기출 어휘·문형</h2><p>2021~2026 기출 · 별도 학습 기록</p></div></button>` : ''}
       <button class="card" id="mVoice"><div class="big jp">音</div><div><h2>음성 설정</h2><p>발음 음성·속도 선택</p></div></button>
+      <button class="card" id="mShop"><div class="big jp">貯</div><div><h2>포인트 상점</h2><p>보유 <b data-pts-bal>${PTS.bal()}</b>P · 상품 교환 · 쿠폰함</p></div></button>
       <button class="card" id="mBackup"><div class="big jp">保</div><div><h2>학습 기록 백업</h2><p>파일로 내보내기 · 불러오기 · 자동 백업</p></div></button>
     </div>
     <p class="note">${IS_MAIN
@@ -1688,6 +1924,7 @@ function Home(){
   const ms = document.getElementById('mSim'); if (ms) ms.onclick = () => go(SimList);
   const mm = document.getElementById('mMean'); if (mm) mm.onclick = () => go(MeanList);
   document.getElementById('mBackup').onclick = () => go(BackupScreen);
+  document.getElementById('mShop').onclick = () => go(Shop);
   document.getElementById('mMiss').onclick = () => go(MissBook);
   BK.banner(document.getElementById('bkBanner'), () => go(BackupScreen));
   const mo = document.getElementById('mOther'); if (mo) mo.onclick = () => { location.href = CONF.other; };
@@ -1725,7 +1962,7 @@ function MissBook(){
   view.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { missSort = b.dataset.s; MissBook(); });
   view.querySelectorAll('.row').forEach(r => r.onclick = e => {
     const id = +r.dataset.id;
-    if (e.target.closest('[data-chk]')) { memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo(); MissBook(); return; }
+    if (e.target.closest('[data-chk]')) { toggleMemo(id); MissBook(); return; }
     go(Detail, [id, list.map(w => w.id)]);
   });
   const q = document.getElementById('mqz'); if (q) q.onclick = () => go(Quiz, [list.slice(0, 20), '개인 오답 단어장 퀴즈', null]);
@@ -1763,7 +2000,7 @@ function Book(day){
   view.querySelectorAll('.row').forEach(r => r.onclick = e => {
     const chk = e.target.closest('[data-chk]');
     const id = +r.dataset.id;
-    if (chk) { memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo(); Book(day); return; }
+    if (chk) { toggleMemo(id); Book(day); return; }
     go(Detail, [id, list.map(w => w.id)]);
   });
   view.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { const q = QSETS.find(x => String(x.key) === b.dataset.q); if (q) go(Quiz, [q.words, `${q.label} 퀴즈`, q.key]); });
@@ -1854,7 +2091,7 @@ function Detail(id, ids){
   document.getElementById('prev').onclick = () => { if (pos > 0) go(Detail, [ids[pos-1], ids], true); };
   document.getElementById('next').onclick = () => { if (pos >= 0 && pos < ids.length-1) go(Detail, [ids[pos+1], ids], true); };
   document.getElementById('memo').onclick = () => {
-    memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo();
+    toggleMemo(id);
     if (memorized.has(id) && pos >= 0 && pos < ids.length-1) go(Detail, [ids[pos+1], ids], true); else Detail(id, ids);
   };
 }
@@ -1894,9 +2131,9 @@ function QuizMenu(){
   });
 }
 
-function Quiz(list, title, day){
+function Quiz(list, title, day, review){
   const qs = shuffle(list);
-  let idx = 0, score = 0; const wrong = [];
+  let idx = 0, score = 0; const wrong = []; let pts = 0, bonus = false;   // 이번 세트 포인트 증감 / 복습 완주 보너스 1회
   let st;
   setHeader(title, true);
   function render(){
@@ -1958,7 +2195,7 @@ function Quiz(list, title, day){
     mark(btn, ok, st.w.m);
     const both = ok && st.readOK;
     if (both) { score++; wrongSet.delete(st.w.id); } else { wrong.push(st.w); wrongSet.add(st.w.id); }
-    srsGrade('w' + st.w.id, both);
+    srsGrade('w' + st.w.id, both); pts += PTS.quiz(both, st.w.w);
     saveWrong();
     const mc = both ? 0 : missAdd(st.w);   // 개인 오답 단어장 누적 +1
     const ex = EX[st.w.w];
@@ -1974,13 +2211,14 @@ function Quiz(list, title, day){
   function next(){
     idx++;
     if (idx < qs.length) { render(); window.scrollTo(0, 0); return; }
+    if (review && !bonus) { bonus = true; pts += PTS.reviewDone(qs.length); }
     if (day) { const prev = best[day]; if (!prev || score > prev.score) { best[day] = {score, total: qs.length}; store.set('best', best); } }
     showResult();
   }
   function showResult(){
     view.innerHTML = `
       <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
-        <div class="score">${score} / ${qs.length}</div>
+        <div class="score">${score} / ${qs.length}</div>${PTS.resLine(pts)}
         <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 단어 ${wrong.length}개는 오답 복습과 개인 오답 단어장에 저장됨`}</div></div>
       ${wrong.length ? `<h2 class="sub">틀린 단어</h2><div class="list wrongs">${wrong.map(w => `
         <button class="card row" data-id="${w.id}"><div class="w jp">${esc(w.w)}${mBadge(w)}${w.r !== w.w ? `<small>${esc(w.r)}</small>` : ''}</div><div class="m">${esc(w.m)}</div></button>`).join('')}</div>` : ''}
@@ -1989,7 +2227,7 @@ function Quiz(list, title, day){
     const tm = document.getElementById('toMiss'); if (tm) tm.onclick = () => go(MissBook);
     view.querySelectorAll('.wrongs .row').forEach(r => r.onclick = () => go(Detail, [+r.dataset.id, wrong.map(w => w.id)]));
     const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(Quiz, [wrong.slice(), title + ' (재도전)', null], true);
-    document.getElementById('again').onclick = () => go(Quiz, [list, title, day], true);
+    document.getElementById('again').onclick = () => go(Quiz, [list, title, day, review], true);
   }
   Quiz._resume = () => {
     setHeader(title, true);
@@ -2012,8 +2250,8 @@ function Review(){
     </div>
     <p class="note">학습 기록: 단어 ${learnedW}/${WORDS.length} · 문형 ${learnedG}/${GRAMMAR.length}<br>
     Day별 퀴즈·문형 퀴즈에서 푼 항목이 자동으로 복습 일정에 등록됩니다. 맞히면 복습 간격이 늘어나고(1일→3일→약 8일→…), 틀리면 오늘 다시 나옵니다.</p>`;
-  if (dw.length) document.getElementById('rW').onclick = () => go(Quiz, [dw.slice(0, REVIEW_MAX), '단어 복습', null]);
-  if (dg.length) document.getElementById('rG').onclick = () => go(GQuiz, [dg.slice(0, REVIEW_MAX), '문형 복습', null]);
+  if (dw.length) document.getElementById('rW').onclick = () => go(Quiz, [dw.slice(0, REVIEW_MAX), '단어 복습', null, true]);
+  if (dg.length) document.getElementById('rG').onclick = () => go(GQuiz, [dg.slice(0, REVIEW_MAX), '문형 복습', null, true]);
 }
 
 // ---------- grammar book ----------
@@ -2055,7 +2293,7 @@ function GBook(day){
   view.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { gFilter = b.dataset.f; GBook(day); });
   view.querySelectorAll('.row[data-id]').forEach(r => r.onclick = e => {
     const id = +r.dataset.id, g = GRAMMAR[id]; if (!g) return;
-    if (e.target.closest('[data-chk]')) { gMemo.has(g.p) ? gMemo.delete(g.p) : gMemo.add(g.p); saveGMemo(); GBook(day); return; }
+    if (e.target.closest('[data-chk]')) { toggleGMemo(g.p, g.p); GBook(day); return; }
     go(GDetail, [id, list.map(x => x.id)]);
   });
   document.getElementById('gq').onclick = () => go(GQuiz, [GDAYS[day-1], `문형 ${GDAYS[day-1].label}`, day]);
@@ -2090,7 +2328,7 @@ function GDetail(id, ids){
   document.getElementById('prev').onclick = () => { if (pos > 0) go(GDetail, [ids[pos-1], ids], true); };
   document.getElementById('next').onclick = () => { if (pos >= 0 && pos < ids.length-1) go(GDetail, [ids[pos+1], ids], true); };
   document.getElementById('memo').onclick = () => {
-    gMemo.has(g.p) ? gMemo.delete(g.p) : gMemo.add(g.p); saveGMemo();
+    toggleGMemo(g.p, g.p);
     if (gMemo.has(g.p) && pos >= 0 && pos < ids.length-1) go(GDetail, [ids[pos+1], ids], true); else GDetail(id, ids);
   };
 }
@@ -2109,9 +2347,9 @@ function grammarChoices(g, ans){
   return shuffle([ans, ...picked]);
 }
 
-function GQuiz(list, title, gday){
+function GQuiz(list, title, gday, review){
   const qs = shuffle(list);
-  let idx = 0, score = 0, locked = false; const wrong = [];
+  let idx = 0, score = 0, locked = false; const wrong = []; let pts = 0, bonus = false;
   setHeader(title, true);
   function draw(){
     const g = qs[idx], e = g.ex[Math.floor(Math.random() * g.ex.length)] || g.ex[0];
@@ -2130,7 +2368,7 @@ function GQuiz(list, title, gday){
       view.querySelectorAll('.choice').forEach(x => { if (x.textContent === ans) x.classList.add('ok'); });
       if (!ok) b.classList.add('ng');
       if (ok) score++; else wrong.push({...g, s: e.s, k: e.k});
-      srsGrade('g' + g.id, ok);
+      srsGrade('g' + g.id, ok); pts += PTS.quiz(ok, g.p);
       document.getElementById('fb').innerHTML = `
         <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 정답' : '❌ 오답'} — <b class="jp">${esc(g.p)}</b> : ${esc(g.m)}
           <div class="jp" style="margin-top:6px">${gMarked(e.s)}</div><div style="color:var(--sub);font-size:13px">${esc(e.k)}</div></div>
@@ -2142,17 +2380,18 @@ function GQuiz(list, title, gday){
   function next(){
     idx++;
     if (idx < qs.length) { draw(); window.scrollTo(0, 0); return; }
+    if (review && !bonus) { bonus = true; pts += PTS.reviewDone(qs.length); }
     if (gday) { const gb = store.get('gbest', {}); if (!gb[gday] || score > gb[gday].score) { gb[gday] = {score, total: qs.length}; store.set('gbest', gb); } }
     view.innerHTML = `
       <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
-        <div class="score">${score} / ${qs.length}</div>
+        <div class="score">${score} / ${qs.length}</div>${PTS.resLine(pts)}
         <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 문형 ${wrong.length}개는 오늘 복습 목록에 추가됨`}</div></div>
       ${wrong.length ? `<h2 class="sub">틀린 문형</h2><div class="list">${wrong.map(g => `
         <div class="card grow"><div class="gp"><span class="jp">${esc(g.p)}</span><span class="gm">${esc(g.m)}</span></div>
           <div class="gx"><div class="jp s">${gMarked(g.s)}</div><div class="k">${esc(g.k)}</div></div></div>`).join('')}</div>` : ''}
       <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">처음부터</button></div>`;
     const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(GQuiz, [wrong.map(w => GRAMMAR[w.id]), title + ' (재도전)', null], true);
-    document.getElementById('again').onclick = () => go(GQuiz, [list, title, gday], true);
+    document.getElementById('again').onclick = () => go(GQuiz, [list, title, gday, review], true);
   }
   draw();
 }
@@ -2213,7 +2452,7 @@ function MeanDetail(i){
 }
 // 퀴즈: 예문 속 한자를 □로 가리고 같은 묶음 한자 중에서 고르기
 function MeanQuiz(list, title){
-  const qs = list.slice(); let idx = 0, score = 0, locked = false; const wrong = [];
+  const qs = list.slice(); let idx = 0, score = 0, locked = false, pts = 0; const wrong = [];
   setHeader(title, true);
   if (!qs.length) { view.innerHTML = '<p class="note">문제가 없습니다.</p>'; return; }
   function draw(){
@@ -2236,7 +2475,7 @@ function MeanQuiz(list, title){
       if (!ok) b.classList.add('ng');
       const mw = new Set(store.get('meanWrong', [])), key = q.gi + ':' + q.c;
       if (ok) { score++; mw.delete(key); } else { wrong.push(q); mw.add(key); }
-      store.set('meanWrong', [...mw]);
+      store.set('meanWrong', [...mw]); pts += PTS.quiz(ok, q.c);
       document.getElementById('fb').innerHTML = `
         <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 정답' : '❌ 오답'} — <span class="jp">${meanMark(x.s)}</span>
           <div style="margin-top:6px;font-size:14px">${g.items.map(y => `<b class="jp">${esc(y.c)}</b> ${esc(y.u)}`).join('<br>')}</div></div>
@@ -2250,7 +2489,7 @@ function MeanQuiz(list, title){
     if (idx < qs.length) { draw(); window.scrollTo(0, 0); return; }
     view.innerHTML = `
       <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
-        <div class="score">${score} / ${qs.length}</div>
+        <div class="score">${score} / ${qs.length}</div>${PTS.resLine(pts)}
         <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 ${wrong.length}문제는 '틀린 것만'에서 다시 풀 수 있음`}</div></div>
       <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">새 문제</button></div>`;
     const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(MeanQuiz, [shuffle(wrong), title + ' (재도전)'], true);
@@ -2290,7 +2529,7 @@ function simItems(){
   return shuffle(out);
 }
 function SimQuiz(list, title){
-  const qs = list.slice(); let idx = 0, score = 0, locked = false; const wrong = [];
+  const qs = list.slice(); let idx = 0, score = 0, locked = false, pts = 0; const wrong = [];
   setHeader(title, true);
   if (!qs.length) { view.innerHTML = '<p class="note">문제가 없습니다.</p>'; return; }
   function draw(){
@@ -2313,7 +2552,7 @@ function SimQuiz(list, title){
       if (!ok) b.classList.add('ng');
       const sw = new Set(store.get('simWrong', []));
       if (ok) { score++; sw.delete(q.c); } else { wrong.push(q); sw.add(q.c); }
-      store.set('simWrong', [...sw]);
+      store.set('simWrong', [...sw]); pts += PTS.quiz(ok, q.c);
       document.getElementById('fb').innerHTML = `
         <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 정답' : '❌ 오답'} — ${g.c.map(c => `<b class="jp">${esc(c)}</b> ${esc((KANJI[c] || {}).hun || '')}`).join(' · ')}
           <div style="margin-top:6px;font-size:14px">💡 ${esc(g.tip)}</div></div>
@@ -2327,7 +2566,7 @@ function SimQuiz(list, title){
     const sb = store.get('simBest', null); if (!sb || score > sb.score || qs.length !== sb.total) store.set('simBest', {score, total: qs.length});
     view.innerHTML = `
       <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
-        <div class="score">${score} / ${qs.length}</div>
+        <div class="score">${score} / ${qs.length}</div>${PTS.resLine(pts)}
         <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 ${wrong.length}자는 '틀린 것만'에서 다시 풀 수 있음`}</div></div>
       ${wrong.length ? `<h2 class="sub">틀린 한자</h2><div class="list">${wrong.map(q => `<div class="card grow"><div class="jp" style="font-size:26px">${SIM[q.gi].c.map(esc).join(' ')}</div><div class="k">💡 ${esc(SIM[q.gi].tip)}</div></div>`).join('')}</div>` : ''}
       <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">새 문제</button></div>`;
@@ -2338,6 +2577,7 @@ function SimQuiz(list, title){
 }
 
 function BackupScreen(){ setHeader('학습 기록 백업', true); BK.screen(view); }
+function Shop(){ setHeader('포인트 상점', true); PTS.screen(view); }
 function VoiceSettings(){ setHeader('음성 설정', true); TTS.screen(view, esc); }
 
 // ---------- keyboard: ←/→ 이전·다음, Enter 외웠어요(상세)·다음 문제(퀴즈), 1~4 보기 선택(퀴즈)·1 발음·2 예문·3~ 추가 예문 듣기(상세), Backspace 이전 화면 ----------

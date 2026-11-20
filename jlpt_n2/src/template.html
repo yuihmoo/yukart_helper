@@ -433,10 +433,13 @@ backBtn.onclick = back;
 function setHeader(t, canBack){ titleEl.textContent = t; backBtn.classList.toggle('hidden', !canBack); }
 
 // ---------- state ----------
+PTS.init({ns: 'n2m', lang: 'ko'});   // 포인트 지갑 (よん은 메인·기출 공통)
 const memorized = new Set(store.get('memo', []));
 const wrongSet = new Set(store.get('wrong', []));
 const best = store.get('best', {});
 const saveMemo = () => store.set('memo', [...memorized]);
+// 외웠어요 체크/취소 + 포인트(+5 / 취소 -5)
+function toggleMemo(id){ const on = !memorized.has(id); on ? memorized.add(id) : memorized.delete(id); saveMemo(); const w = WORDS[id]; PTS.memo(on, w ? w.w : ''); }
 const saveWrong = () => store.set('wrong', [...wrongSet]);
 // 개인 오답 단어장: 퀴즈에서 틀릴 때마다 단어별 누적 횟수 +1 (맞혀도 줄지 않음). 키는 표기|읽기 → 데이터 순서가 바뀌어도 유지
 const missKey = w => w.w + '|' + w.r;
@@ -452,6 +455,7 @@ const mBadge = w => { const n = missOf(w); return n ? `<span class="mbadge" titl
 // 문형 암기 체크 (단어장과 같은 방식). 키는 문형 문자열 → 순서가 바뀌어도 기록 유지
 const gMemo = new Set((store.get('gmemo', []) || []).filter(x => typeof x === 'string'));
 const saveGMemo = () => store.set('gmemo', [...gMemo]);
+function toggleGMemo(key, label){ const on = !gMemo.has(key); on ? gMemo.add(key) : gMemo.delete(key); saveGMemo(); PTS.memo(on, label); }
 let gFilter = 'all';
 
 // ---------- SRS (간격 반복, SM-2 간소화) ----------
@@ -513,6 +517,7 @@ function Home(){
       <button class="card" id="mWrong"><div class="big jp">誤</div><div><h2>오답 복습</h2><p>틀린 단어만 다시 풀기 (${wrongSet.size}개)</p></div></button>
       ${IS_MAIN ? `<button class="card" id="mOther"><div class="big jp">過</div><div><h2>최신 기출 어휘·문형</h2><p>2021~2026 기출 · 별도 학습 기록</p></div></button>` : ''}
       <button class="card" id="mVoice"><div class="big jp">音</div><div><h2>음성 설정</h2><p>발음 음성·속도 선택</p></div></button>
+      <button class="card" id="mShop"><div class="big jp">貯</div><div><h2>포인트 상점</h2><p>보유 <b data-pts-bal>${PTS.bal()}</b>P · 상품 교환 · 쿠폰함</p></div></button>
       <button class="card" id="mBackup"><div class="big jp">保</div><div><h2>학습 기록 백업</h2><p>파일로 내보내기 · 불러오기 · 자동 백업</p></div></button>
     </div>
     <p class="note">${IS_MAIN
@@ -530,6 +535,7 @@ function Home(){
   const ms = document.getElementById('mSim'); if (ms) ms.onclick = () => go(SimList);
   const mm = document.getElementById('mMean'); if (mm) mm.onclick = () => go(MeanList);
   document.getElementById('mBackup').onclick = () => go(BackupScreen);
+  document.getElementById('mShop').onclick = () => go(Shop);
   document.getElementById('mMiss').onclick = () => go(MissBook);
   BK.banner(document.getElementById('bkBanner'), () => go(BackupScreen));
   const mo = document.getElementById('mOther'); if (mo) mo.onclick = () => { location.href = CONF.other; };
@@ -567,7 +573,7 @@ function MissBook(){
   view.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { missSort = b.dataset.s; MissBook(); });
   view.querySelectorAll('.row').forEach(r => r.onclick = e => {
     const id = +r.dataset.id;
-    if (e.target.closest('[data-chk]')) { memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo(); MissBook(); return; }
+    if (e.target.closest('[data-chk]')) { toggleMemo(id); MissBook(); return; }
     go(Detail, [id, list.map(w => w.id)]);
   });
   const q = document.getElementById('mqz'); if (q) q.onclick = () => go(Quiz, [list.slice(0, 20), '개인 오답 단어장 퀴즈', null]);
@@ -605,7 +611,7 @@ function Book(day){
   view.querySelectorAll('.row').forEach(r => r.onclick = e => {
     const chk = e.target.closest('[data-chk]');
     const id = +r.dataset.id;
-    if (chk) { memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo(); Book(day); return; }
+    if (chk) { toggleMemo(id); Book(day); return; }
     go(Detail, [id, list.map(w => w.id)]);
   });
   view.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { const q = QSETS.find(x => String(x.key) === b.dataset.q); if (q) go(Quiz, [q.words, `${q.label} 퀴즈`, q.key]); });
@@ -696,7 +702,7 @@ function Detail(id, ids){
   document.getElementById('prev').onclick = () => { if (pos > 0) go(Detail, [ids[pos-1], ids], true); };
   document.getElementById('next').onclick = () => { if (pos >= 0 && pos < ids.length-1) go(Detail, [ids[pos+1], ids], true); };
   document.getElementById('memo').onclick = () => {
-    memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo();
+    toggleMemo(id);
     if (memorized.has(id) && pos >= 0 && pos < ids.length-1) go(Detail, [ids[pos+1], ids], true); else Detail(id, ids);
   };
 }
@@ -736,9 +742,9 @@ function QuizMenu(){
   });
 }
 
-function Quiz(list, title, day){
+function Quiz(list, title, day, review){
   const qs = shuffle(list);
-  let idx = 0, score = 0; const wrong = [];
+  let idx = 0, score = 0; const wrong = []; let pts = 0, bonus = false;   // 이번 세트 포인트 증감 / 복습 완주 보너스 1회
   let st;
   setHeader(title, true);
   function render(){
@@ -800,7 +806,7 @@ function Quiz(list, title, day){
     mark(btn, ok, st.w.m);
     const both = ok && st.readOK;
     if (both) { score++; wrongSet.delete(st.w.id); } else { wrong.push(st.w); wrongSet.add(st.w.id); }
-    srsGrade('w' + st.w.id, both);
+    srsGrade('w' + st.w.id, both); pts += PTS.quiz(both, st.w.w);
     saveWrong();
     const mc = both ? 0 : missAdd(st.w);   // 개인 오답 단어장 누적 +1
     const ex = EX[st.w.w];
@@ -816,13 +822,14 @@ function Quiz(list, title, day){
   function next(){
     idx++;
     if (idx < qs.length) { render(); window.scrollTo(0, 0); return; }
+    if (review && !bonus) { bonus = true; pts += PTS.reviewDone(qs.length); }
     if (day) { const prev = best[day]; if (!prev || score > prev.score) { best[day] = {score, total: qs.length}; store.set('best', best); } }
     showResult();
   }
   function showResult(){
     view.innerHTML = `
       <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
-        <div class="score">${score} / ${qs.length}</div>
+        <div class="score">${score} / ${qs.length}</div>${PTS.resLine(pts)}
         <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 단어 ${wrong.length}개는 오답 복습과 개인 오답 단어장에 저장됨`}</div></div>
       ${wrong.length ? `<h2 class="sub">틀린 단어</h2><div class="list wrongs">${wrong.map(w => `
         <button class="card row" data-id="${w.id}"><div class="w jp">${esc(w.w)}${mBadge(w)}${w.r !== w.w ? `<small>${esc(w.r)}</small>` : ''}</div><div class="m">${esc(w.m)}</div></button>`).join('')}</div>` : ''}
@@ -831,7 +838,7 @@ function Quiz(list, title, day){
     const tm = document.getElementById('toMiss'); if (tm) tm.onclick = () => go(MissBook);
     view.querySelectorAll('.wrongs .row').forEach(r => r.onclick = () => go(Detail, [+r.dataset.id, wrong.map(w => w.id)]));
     const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(Quiz, [wrong.slice(), title + ' (재도전)', null], true);
-    document.getElementById('again').onclick = () => go(Quiz, [list, title, day], true);
+    document.getElementById('again').onclick = () => go(Quiz, [list, title, day, review], true);
   }
   Quiz._resume = () => {
     setHeader(title, true);
@@ -854,8 +861,8 @@ function Review(){
     </div>
     <p class="note">학습 기록: 단어 ${learnedW}/${WORDS.length} · 문형 ${learnedG}/${GRAMMAR.length}<br>
     Day별 퀴즈·문형 퀴즈에서 푼 항목이 자동으로 복습 일정에 등록됩니다. 맞히면 복습 간격이 늘어나고(1일→3일→약 8일→…), 틀리면 오늘 다시 나옵니다.</p>`;
-  if (dw.length) document.getElementById('rW').onclick = () => go(Quiz, [dw.slice(0, REVIEW_MAX), '단어 복습', null]);
-  if (dg.length) document.getElementById('rG').onclick = () => go(GQuiz, [dg.slice(0, REVIEW_MAX), '문형 복습', null]);
+  if (dw.length) document.getElementById('rW').onclick = () => go(Quiz, [dw.slice(0, REVIEW_MAX), '단어 복습', null, true]);
+  if (dg.length) document.getElementById('rG').onclick = () => go(GQuiz, [dg.slice(0, REVIEW_MAX), '문형 복습', null, true]);
 }
 
 // ---------- grammar book ----------
@@ -897,7 +904,7 @@ function GBook(day){
   view.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { gFilter = b.dataset.f; GBook(day); });
   view.querySelectorAll('.row[data-id]').forEach(r => r.onclick = e => {
     const id = +r.dataset.id, g = GRAMMAR[id]; if (!g) return;
-    if (e.target.closest('[data-chk]')) { gMemo.has(g.p) ? gMemo.delete(g.p) : gMemo.add(g.p); saveGMemo(); GBook(day); return; }
+    if (e.target.closest('[data-chk]')) { toggleGMemo(g.p, g.p); GBook(day); return; }
     go(GDetail, [id, list.map(x => x.id)]);
   });
   document.getElementById('gq').onclick = () => go(GQuiz, [GDAYS[day-1], `문형 ${GDAYS[day-1].label}`, day]);
@@ -932,7 +939,7 @@ function GDetail(id, ids){
   document.getElementById('prev').onclick = () => { if (pos > 0) go(GDetail, [ids[pos-1], ids], true); };
   document.getElementById('next').onclick = () => { if (pos >= 0 && pos < ids.length-1) go(GDetail, [ids[pos+1], ids], true); };
   document.getElementById('memo').onclick = () => {
-    gMemo.has(g.p) ? gMemo.delete(g.p) : gMemo.add(g.p); saveGMemo();
+    toggleGMemo(g.p, g.p);
     if (gMemo.has(g.p) && pos >= 0 && pos < ids.length-1) go(GDetail, [ids[pos+1], ids], true); else GDetail(id, ids);
   };
 }
@@ -951,9 +958,9 @@ function grammarChoices(g, ans){
   return shuffle([ans, ...picked]);
 }
 
-function GQuiz(list, title, gday){
+function GQuiz(list, title, gday, review){
   const qs = shuffle(list);
-  let idx = 0, score = 0, locked = false; const wrong = [];
+  let idx = 0, score = 0, locked = false; const wrong = []; let pts = 0, bonus = false;
   setHeader(title, true);
   function draw(){
     const g = qs[idx], e = g.ex[Math.floor(Math.random() * g.ex.length)] || g.ex[0];
@@ -972,7 +979,7 @@ function GQuiz(list, title, gday){
       view.querySelectorAll('.choice').forEach(x => { if (x.textContent === ans) x.classList.add('ok'); });
       if (!ok) b.classList.add('ng');
       if (ok) score++; else wrong.push({...g, s: e.s, k: e.k});
-      srsGrade('g' + g.id, ok);
+      srsGrade('g' + g.id, ok); pts += PTS.quiz(ok, g.p);
       document.getElementById('fb').innerHTML = `
         <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 정답' : '❌ 오답'} — <b class="jp">${esc(g.p)}</b> : ${esc(g.m)}
           <div class="jp" style="margin-top:6px">${gMarked(e.s)}</div><div style="color:var(--sub);font-size:13px">${esc(e.k)}</div></div>
@@ -984,17 +991,18 @@ function GQuiz(list, title, gday){
   function next(){
     idx++;
     if (idx < qs.length) { draw(); window.scrollTo(0, 0); return; }
+    if (review && !bonus) { bonus = true; pts += PTS.reviewDone(qs.length); }
     if (gday) { const gb = store.get('gbest', {}); if (!gb[gday] || score > gb[gday].score) { gb[gday] = {score, total: qs.length}; store.set('gbest', gb); } }
     view.innerHTML = `
       <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
-        <div class="score">${score} / ${qs.length}</div>
+        <div class="score">${score} / ${qs.length}</div>${PTS.resLine(pts)}
         <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 문형 ${wrong.length}개는 오늘 복습 목록에 추가됨`}</div></div>
       ${wrong.length ? `<h2 class="sub">틀린 문형</h2><div class="list">${wrong.map(g => `
         <div class="card grow"><div class="gp"><span class="jp">${esc(g.p)}</span><span class="gm">${esc(g.m)}</span></div>
           <div class="gx"><div class="jp s">${gMarked(g.s)}</div><div class="k">${esc(g.k)}</div></div></div>`).join('')}</div>` : ''}
       <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">처음부터</button></div>`;
     const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(GQuiz, [wrong.map(w => GRAMMAR[w.id]), title + ' (재도전)', null], true);
-    document.getElementById('again').onclick = () => go(GQuiz, [list, title, gday], true);
+    document.getElementById('again').onclick = () => go(GQuiz, [list, title, gday, review], true);
   }
   draw();
 }
@@ -1055,7 +1063,7 @@ function MeanDetail(i){
 }
 // 퀴즈: 예문 속 한자를 □로 가리고 같은 묶음 한자 중에서 고르기
 function MeanQuiz(list, title){
-  const qs = list.slice(); let idx = 0, score = 0, locked = false; const wrong = [];
+  const qs = list.slice(); let idx = 0, score = 0, locked = false, pts = 0; const wrong = [];
   setHeader(title, true);
   if (!qs.length) { view.innerHTML = '<p class="note">문제가 없습니다.</p>'; return; }
   function draw(){
@@ -1078,7 +1086,7 @@ function MeanQuiz(list, title){
       if (!ok) b.classList.add('ng');
       const mw = new Set(store.get('meanWrong', [])), key = q.gi + ':' + q.c;
       if (ok) { score++; mw.delete(key); } else { wrong.push(q); mw.add(key); }
-      store.set('meanWrong', [...mw]);
+      store.set('meanWrong', [...mw]); pts += PTS.quiz(ok, q.c);
       document.getElementById('fb').innerHTML = `
         <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 정답' : '❌ 오답'} — <span class="jp">${meanMark(x.s)}</span>
           <div style="margin-top:6px;font-size:14px">${g.items.map(y => `<b class="jp">${esc(y.c)}</b> ${esc(y.u)}`).join('<br>')}</div></div>
@@ -1092,7 +1100,7 @@ function MeanQuiz(list, title){
     if (idx < qs.length) { draw(); window.scrollTo(0, 0); return; }
     view.innerHTML = `
       <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
-        <div class="score">${score} / ${qs.length}</div>
+        <div class="score">${score} / ${qs.length}</div>${PTS.resLine(pts)}
         <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 ${wrong.length}문제는 '틀린 것만'에서 다시 풀 수 있음`}</div></div>
       <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">새 문제</button></div>`;
     const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(MeanQuiz, [shuffle(wrong), title + ' (재도전)'], true);
@@ -1132,7 +1140,7 @@ function simItems(){
   return shuffle(out);
 }
 function SimQuiz(list, title){
-  const qs = list.slice(); let idx = 0, score = 0, locked = false; const wrong = [];
+  const qs = list.slice(); let idx = 0, score = 0, locked = false, pts = 0; const wrong = [];
   setHeader(title, true);
   if (!qs.length) { view.innerHTML = '<p class="note">문제가 없습니다.</p>'; return; }
   function draw(){
@@ -1155,7 +1163,7 @@ function SimQuiz(list, title){
       if (!ok) b.classList.add('ng');
       const sw = new Set(store.get('simWrong', []));
       if (ok) { score++; sw.delete(q.c); } else { wrong.push(q); sw.add(q.c); }
-      store.set('simWrong', [...sw]);
+      store.set('simWrong', [...sw]); pts += PTS.quiz(ok, q.c);
       document.getElementById('fb').innerHTML = `
         <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 정답' : '❌ 오답'} — ${g.c.map(c => `<b class="jp">${esc(c)}</b> ${esc((KANJI[c] || {}).hun || '')}`).join(' · ')}
           <div style="margin-top:6px;font-size:14px">💡 ${esc(g.tip)}</div></div>
@@ -1169,7 +1177,7 @@ function SimQuiz(list, title){
     const sb = store.get('simBest', null); if (!sb || score > sb.score || qs.length !== sb.total) store.set('simBest', {score, total: qs.length});
     view.innerHTML = `
       <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
-        <div class="score">${score} / ${qs.length}</div>
+        <div class="score">${score} / ${qs.length}</div>${PTS.resLine(pts)}
         <div style="color:var(--sub)">${score === qs.length ? '만점! 🎉' : `틀린 ${wrong.length}자는 '틀린 것만'에서 다시 풀 수 있음`}</div></div>
       ${wrong.length ? `<h2 class="sub">틀린 한자</h2><div class="list">${wrong.map(q => `<div class="card grow"><div class="jp" style="font-size:26px">${SIM[q.gi].c.map(esc).join(' ')}</div><div class="k">💡 ${esc(SIM[q.gi].tip)}</div></div>`).join('')}</div>` : ''}
       <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">틀린 것만 다시</button>` : ''}<button class="btn" id="again">새 문제</button></div>`;
@@ -1180,6 +1188,7 @@ function SimQuiz(list, title){
 }
 
 function BackupScreen(){ setHeader('학습 기록 백업', true); BK.screen(view); }
+function Shop(){ setHeader('포인트 상점', true); PTS.screen(view); }
 function VoiceSettings(){ setHeader('음성 설정', true); TTS.screen(view, esc); }
 
 // ---------- keyboard: ←/→ 이전·다음, Enter 외웠어요(상세)·다음 문제(퀴즈), 1~4 보기 선택(퀴즈)·1 발음·2 예문·3~ 추가 예문 듣기(상세), Backspace 이전 화면 ----------
