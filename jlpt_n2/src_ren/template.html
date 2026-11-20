@@ -262,9 +262,12 @@ document.getElementById('backBtn').onclick = back;
 const setHeader = t => { titleEl.textContent = t; };
 
 // ---------- state & SRS ----------
+PTS.init({ns: 'ren', lang: 'ja'});   // 포인트 지갑 (よん은 메인·기출 공통)
 const memorized = new Set(store.get('memo', []));
 const wrongSet = new Set(store.get('wrong', []));
 const saveMemo = () => store.set('memo', [...memorized]);
+// 외웠어요 체크/취소 + 포인트(+5 / 취소 -5)
+function toggleMemo(id){ const on = !memorized.has(id); on ? memorized.add(id) : memorized.delete(id); saveMemo(); const w = WORDS[id]; PTS.memo(on, w ? w.ko : ''); }
 const saveWrong = () => store.set('wrong', [...wrongSet]);
 // マイ間違い単語帳: クイズで間違えるたびに単語ごとの累積回数 +1（正解しても減らない）。キーは単語番号 n → 並びが変わっても残る
 const missKey = w => 'n' + w.n;
@@ -279,6 +282,7 @@ const mBadge = w => { const n = missOf(w); return n ? `<span class="mbadge" titl
 // 文法の暗記チェック（単語帳と同じ方式）。キーは文法の番号 n → 並びが変わっても記録が残る
 const gMemo = new Set((store.get('gmemo', []) || []).filter(x => typeof x === 'number'));
 const saveGMemo = () => store.set('gmemo', [...gMemo]);
+function toggleGMemo(key, label){ const on = !gMemo.has(key); on ? gMemo.add(key) : gMemo.delete(key); saveGMemo(); PTS.memo(on, label); }
 let gFilter = 'all';
 const DAY_MS = 864e5;
 const srs = (() => { const v = store.get('srs', {}); return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; })();
@@ -325,6 +329,7 @@ function Home(){
       <button class="card" id="mMiss"><div class="big kj">苦</div><div><h2>マイ間違い単語帳</h2><p>クイズで間違えた単語 ${missWords().length} · 間違えた回数順</p></div></button>
       <button class="card" id="mWrong"><div class="big kj">誤</div><div><h2>間違いノート</h2><p>間違えた単語だけ (${wrongSet.size})</p></div></button>
       <button class="card" id="mVoice"><div class="big kj">音</div><div><h2>音声設定</h2><p>読み上げの声・速さ</p></div></button>
+      <button class="card" id="mShop"><div class="big kj">貯</div><div><h2>ポイントショップ</h2><p>所持 <b data-pts-bal>${PTS.bal()}</b>P · 商品と交換 · クーポン箱</p></div></button>
       <button class="card" id="mBackup"><div class="big kj">保</div><div><h2>学習記録のバックアップ</h2><p>書き出し · 読み込み · 自動バックアップ</p></div></button>
     </div>
     <p class="note">出典: 韓国語能力試験(TOPIK)初級 単語1671・中級 単語2662・中級文法148 (trilingual.jp PDF)。初級のうち中級と重複する1語(올림픽)は中級側に収録。<br>
@@ -336,6 +341,7 @@ function Home(){
   document.getElementById('mGram').onclick = () => go(GBook, [store.get('gbookDay', 1)]);
   document.getElementById('mVoice').onclick = () => go(VoiceSettings);
   document.getElementById('mBackup').onclick = () => go(BackupScreen);
+  document.getElementById('mShop').onclick = () => go(Shop);
   document.getElementById('mMiss').onclick = () => go(MissBook);
   BK.banner(document.getElementById('bkBanner'), () => go(BackupScreen));
   document.getElementById('mWrong').onclick = () => {
@@ -354,8 +360,8 @@ function Review(){
       <button class="card" id="rG" ${dg.length ? '' : 'disabled'}><div class="big ko">문</div><div><h2>文法 ${dg.length}</h2><p>${dg.length ? `1回最大 ${REVIEW_MAX}` : '今日の復習はありません'}</p></div></button>
     </div>
     <p class="note">クイズで解いた単語・文法が自動で復習スケジュールに登録されます。</p>`;
-  if (dw.length) document.getElementById('rW').onclick = () => go(Quiz, [dw.slice(0, REVIEW_MAX), '単語の復習', null]);
-  if (dg.length) document.getElementById('rG').onclick = () => go(GQuiz, [dg.slice(0, REVIEW_MAX), '文法の復習', null]);
+  if (dw.length) document.getElementById('rW').onclick = () => go(Quiz, [dw.slice(0, REVIEW_MAX), '単語の復習', null, true]);
+  if (dg.length) document.getElementById('rG').onclick = () => go(GQuiz, [dg.slice(0, REVIEW_MAX), '文法の復習', null, true]);
 }
 
 // ---------- マイ間違い単語帳 ----------
@@ -385,7 +391,7 @@ function MissBook(){
   view.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { missSort = b.dataset.s; MissBook(); });
   view.querySelectorAll('.row').forEach(r => r.onclick = e => {
     const id = +r.dataset.id;
-    if (e.target.closest('[data-chk]')) { memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo(); MissBook(); return; }
+    if (e.target.closest('[data-chk]')) { toggleMemo(id); MissBook(); return; }
     go(Detail, [id, list.map(w => w.id)]);
   });
   const q = document.getElementById('mqz'); if (q) q.onclick = () => go(Quiz, [list.slice(0, 20), 'マイ間違い単語帳クイズ', null]);
@@ -424,7 +430,7 @@ function Book(day){
   view.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { bookFilter = b.dataset.f; Book(day); });
   view.querySelectorAll('.row').forEach(r => r.onclick = e => {
     const id = +r.dataset.id;
-    if (e.target.closest('[data-chk]')) { memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo(); Book(day); return; }
+    if (e.target.closest('[data-chk]')) { toggleMemo(id); Book(day); return; }
     go(Detail, [id, list.map(w => w.id)]);
   });
   document.getElementById('toQuiz').onclick = () => go(Quiz, [DAYS[day-1], `${dayLabel(day)} クイズ`, day]);
@@ -507,7 +513,7 @@ function Detail(id, ids){
   document.getElementById('prev').onclick = () => { if (pos > 0) go(Detail, [ids[pos-1], ids], true); };
   document.getElementById('next').onclick = () => { if (pos >= 0 && pos < ids.length-1) go(Detail, [ids[pos+1], ids], true); };
   document.getElementById('memo').onclick = () => {
-    memorized.has(id) ? memorized.delete(id) : memorized.add(id); saveMemo();
+    toggleMemo(id);
     if (memorized.has(id) && pos >= 0 && pos < ids.length-1) go(Detail, [ids[pos+1], ids], true); else Detail(id, ids);
   };
 }
@@ -552,9 +558,9 @@ function QuizMenu(){
   });
 }
 
-function Quiz(list, title, day){
+function Quiz(list, title, day, review){
   const qs = shuffle(list);
-  let idx = 0, score = 0, st = null; const wrong = [];
+  let idx = 0, score = 0, st = null; const wrong = []; let pts = 0, bonus = false;   // 이번 세트 포인트 증감 / 복습 완주 보너스 1회
   setHeader(title);
   function render(){ const w = qs[idx]; st = {w, opts: shuffle([w, ...distractors(w)]), locked: false, done: false}; draw(); }
   function draw(){
@@ -591,7 +597,7 @@ function Quiz(list, title, day){
       const g = document.getElementById('giveup'); if (g) g.remove();
     }
     if (ok) { score++; wrongSet.delete(w.id); } else { wrong.push(w); wrongSet.add(w.id); }
-    saveWrong(); srsGrade('w' + w.id, ok);
+    saveWrong(); srsGrade('w' + w.id, ok); pts += PTS.quiz(ok, w.ko);
     const mc = ok ? 0 : missAdd(w);   // マイ間違い単語帳 累計 +1
     document.getElementById('fb').innerHTML = `
       <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 正解' : '❌ 不正解'} — <b class="ko">${esc(w.ko)}</b>${w.hj ? ` <span class="kj">(${esc(w.hj.map(h => h[1]).join(''))})</span>` : ''} : ${esc(w.ja)}
@@ -606,13 +612,14 @@ function Quiz(list, title, day){
   function next(){
     idx++;
     if (idx < qs.length) { render(); window.scrollTo(0, 0); return; }
+    if (review && !bonus) { bonus = true; pts += PTS.reviewDone(qs.length); }
     if (day) { const best = store.get('best', {}); if (!best[day] || score > best[day].score) { best[day] = {score, total: qs.length}; store.set('best', best); } }
     showResult();
   }
   function showResult(){
     view.innerHTML = `
       <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
-        <div class="score">${score} / ${qs.length}</div>
+        <div class="score">${score} / ${qs.length}</div>${PTS.resLine(pts)}
         <div style="color:var(--sub)">${score === qs.length ? '満点！🎉' : `間違えた ${wrong.length} 語は間違いノートとマイ間違い単語帳に保存`}</div></div>
       ${wrong.length ? `<h2 class="sub">間違えた単語</h2><div class="list">${wrong.map(w => `
         <button class="card row" data-id="${w.id}"><div class="w ko">${esc(w.ko)}${mBadge(w)}</div><div class="m">${esc(w.ja)}</div></button>`).join('')}</div>` : ''}
@@ -621,7 +628,7 @@ function Quiz(list, title, day){
     const tm = document.getElementById('toMiss'); if (tm) tm.onclick = () => go(MissBook);
     view.querySelectorAll('.row[data-id]').forEach(r => r.onclick = () => go(Detail, [+r.dataset.id, wrong.map(w => w.id)]));
     const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(Quiz, [wrong.slice(), title + '（再挑戦）', null], true);
-    document.getElementById('again').onclick = () => go(Quiz, [list, title, day], true);
+    document.getElementById('again').onclick = () => go(Quiz, [list, title, day, review], true);
   }
   Quiz._resume = () => { setHeader(title); if (idx >= qs.length) showResult(); else if (st.done) next(); else { st.locked = false; draw(); } };
   render();
@@ -666,7 +673,7 @@ function GBook(day){
   view.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { gFilter = b.dataset.f; GBook(day); });
   view.querySelectorAll('.row[data-id]').forEach(r => r.onclick = e => {
     const id = +r.dataset.id, g = GRAMMAR[id]; if (!g) return;
-    if (e.target.closest('[data-chk]')) { gMemo.has(g.n) ? gMemo.delete(g.n) : gMemo.add(g.n); saveGMemo(); GBook(day); return; }
+    if (e.target.closest('[data-chk]')) { toggleGMemo(g.n, g.p); GBook(day); return; }
     go(GDetail, [id, list.map(x => x.id)]);
   });
   document.getElementById('gq').onclick = () => go(GQuiz, [GDAYS[day-1], `文法 Day ${day}`, day]);
@@ -701,7 +708,7 @@ function GDetail(id, ids){
   document.getElementById('prev').onclick = () => { if (pos > 0) go(GDetail, [ids[pos-1], ids], true); };
   document.getElementById('next').onclick = () => { if (pos >= 0 && pos < ids.length-1) go(GDetail, [ids[pos+1], ids], true); };
   document.getElementById('memo').onclick = () => {
-    gMemo.has(g.n) ? gMemo.delete(g.n) : gMemo.add(g.n); saveGMemo();
+    toggleGMemo(g.n, g.p);
     if (gMemo.has(g.n) && pos >= 0 && pos < ids.length-1) go(GDetail, [ids[pos+1], ids], true); else GDetail(id, ids);
   };
 }
@@ -713,9 +720,9 @@ function grammarChoices(g, ans){
   for (const c of shuffle(cands.slice(0, 12))) { if (picked.length >= 3) break; if (!picked.includes(c.a)) picked.push(c.a); }
   return shuffle([ans, ...picked]);
 }
-function GQuiz(list, title, gday){
+function GQuiz(list, title, gday, review){
   const qs = shuffle(list);
-  let idx = 0, score = 0, locked = false; const wrong = [];
+  let idx = 0, score = 0, locked = false; const wrong = []; let pts = 0, bonus = false;
   setHeader(title);
   function draw(){
     const g = qs[idx], e = (g.ex && g.ex[Math.floor(Math.random() * g.ex.length)]) || {s: g.s, k: g.k};
@@ -735,7 +742,7 @@ function GQuiz(list, title, gday){
       view.querySelectorAll('.choice').forEach((x, i) => { if (opts[i] === ans) x.classList.add('ok'); });
       if (!ok) b.classList.add('ng');
       if (ok) score++; else wrong.push({...g, s: e.s, k: e.k});
-      srsGrade('g' + g.id, ok);
+      srsGrade('g' + g.id, ok); pts += PTS.quiz(ok, g.p);
       document.getElementById('fb').innerHTML = `
         <div class="fb ${ok ? 'ok' : 'ng'}">${ok ? '⭕ 正解' : '❌ 不正解'} — <b class="ko">${esc(g.p)}</b> : ${esc(g.m)}
           <div class="ko" style="margin-top:6px">${gMarked(e.s)}</div><div style="color:var(--sub);font-size:13px">${esc(e.k)}</div></div>
@@ -747,22 +754,24 @@ function GQuiz(list, title, gday){
   function next(){
     idx++;
     if (idx < qs.length) { draw(); window.scrollTo(0, 0); return; }
+    if (review && !bonus) { bonus = true; pts += PTS.reviewDone(qs.length); }
     if (gday) { const gb = store.get('gbest', {}); if (!gb[gday] || score > gb[gday].score) { gb[gday] = {score, total: qs.length}; store.set('gbest', gb); } }
     view.innerHTML = `
       <div class="card result"><div style="color:var(--sub)">${esc(title)}</div>
-        <div class="score">${score} / ${qs.length}</div>
+        <div class="score">${score} / ${qs.length}</div>${PTS.resLine(pts)}
         <div style="color:var(--sub)">${score === qs.length ? '満点！🎉' : `間違えた ${wrong.length} 件は今日の復習に追加`}</div></div>
       ${wrong.length ? `<h2 class="sub">間違えた文法</h2><div class="list">${wrong.map(g => `
         <div class="card grow"><div class="gp"><span class="ko">${esc(g.p)}</span><span class="gm">${esc(g.m)}</span></div>
           <div class="gx"><div class="ko s">${gMarked(g.s)}</div><div class="k">${esc(g.k)}</div></div></div>`).join('')}</div>` : ''}
       <div class="nav2">${wrong.length ? `<button class="btn primary" id="retry">間違いだけもう一度</button>` : ''}<button class="btn" id="again">最初から</button></div>`;
     const rt = document.getElementById('retry'); if (rt) rt.onclick = () => go(GQuiz, [wrong.map(w => GRAMMAR[w.id]), title + '（再挑戦）', null], true);
-    document.getElementById('again').onclick = () => go(GQuiz, [list, title, gday], true);
+    document.getElementById('again').onclick = () => go(GQuiz, [list, title, gday, review], true);
   }
   draw();
 }
 
 function BackupScreen(){ setHeader('学習記録のバックアップ', true); BK.screen(view); }
+function Shop(){ setHeader('ポイントショップ', true); PTS.screen(view); }
 function VoiceSettings(){ setHeader('音声設定'); TTS.screen(view, esc); }
 
 // ---------- keyboard: ←/→ 이전·다음, Enter 외웠어요(상세)·다음 문제(퀴즈), 1~4 보기 선택(퀴즈)·1 발음·2 예문·3~ 추가 예문 듣기(상세), Backspace 이전 화면 ----------
