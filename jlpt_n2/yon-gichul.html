@@ -75,6 +75,11 @@ header.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;
 .row .w small{display:block;font-size:13px;color:var(--sub);font-family:inherit}
 .row .m{font-size:13px;color:var(--sub);text-align:right;max-width:45%}
 .row.done{opacity:.55}
+.kcs{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.kc{display:inline-flex;align-items:baseline;gap:2px;font-size:11px;line-height:1.6;padding:0 7px;border-radius:999px;background:var(--chip);color:var(--sub);font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kc b{font-weight:600;color:var(--ink);font-size:12px}
+.kc.hot{background:var(--accent-weak);color:var(--accent)}.kc.hot b{color:var(--accent)}
+.kclegend{margin:0 0 8px;font-size:12px;color:var(--sub);display:flex;flex-wrap:wrap;align-items:center;gap:4px}
 .row .gw{font-size:18px;word-break:keep-all}.detail .head .gword{font-size:30px}
 .chk{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);flex:0 0 auto;display:grid;place-items:center;font-size:13px}
 .chk.on{background:var(--ok);border-color:var(--ok);color:#fff}
@@ -1294,6 +1299,10 @@ GDAYS.forEach((d, i) => d.forEach(g => g.gday = i + 1));
 
 const isKanji = c => /[一-鿿々]/.test(c);
 const uniqKanji = w => [...new Set([...w].filter(c => /[一-鿿]/.test(c)))];
+// 한자 등장 횟수: 이 단어장(일차 중복 수록은 1번만)에서 그 한자가 들어간 단어 수
+const KCOUNT = (() => { const m = {}; for (const w of new Set(WORDS.map(x => x.w))) for (const c of uniqKanji(w)) m[c] = (m[c] || 0) + 1; return m; })();
+const KC_HOT = 10;
+const kcChips = word => { const ks = uniqKanji(word); return ks.length ? `<span class="kcs">${ks.map(c => `<span class="kc ${KCOUNT[c] >= KC_HOT ? 'hot' : ''}" title="'${c}'이(가) 들어간 단어 ${KCOUNT[c]}개"><b class="jp">${c}</b>${KCOUNT[c]}</span>`).join('')}</span>` : ''; };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const shuffle = a => { a = a.slice(); for (let i = a.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
@@ -2048,10 +2057,11 @@ function Book(day){
       <button class="pill ${bookFilter==='done'?'on':''}" data-f="done">암기 완료</button>
       <button class="pill ${bookFilter==='pred'?'on':''}" data-f="pred">출제 예상 ★</button>
     </div>
+    <p class="kclegend"><span class="kc"><b class="jp">字</b>N</span> 한자 옆 숫자 = 단어장 전체에서 그 한자가 들어간 단어 수 · <span class="kc hot">${KC_HOT}+</span> 자주 나오는 한자</p>
     <div class="list">${list.map((w, i) => `${w.h && (i === 0 || list[i-1].h !== w.h) ? `<h2 class="sub cat">${esc(w.h)}</h2>` : ''}
       <div class="card row ${memorized.has(w.id)?'done':''}" data-id="${w.id}">
         <button class="chk ${memorized.has(w.id)?'on':''}" data-chk="${w.id}" aria-label="암기 체크">${memorized.has(w.id)?'✓':''}</button>
-        <div class="w jp">${esc(w.w)}${w.pred ? `<span class="pstar t${w.pred.tier}" title="출제 예상">${STAR(w.pred.tier)}</span>` : ''}${mBadge(w)}${w.r !== w.w ? `<small>${esc(w.r)}</small>` : ''}</div>
+        <div class="w jp">${esc(w.w)}${w.pred ? `<span class="pstar t${w.pred.tier}" title="출제 예상">${STAR(w.pred.tier)}</span>` : ''}${mBadge(w)}${w.r !== w.w ? `<small>${esc(w.r)}</small>` : ''}${kcChips(w.w)}</div>
         <div class="m">${esc(w.m)}</div>
       </div>`).join('') || '<p class="note">해당하는 단어가 없습니다.</p>'}</div>
     <div class="nav2 qparts">${qsetsOf(day).map(q => `<button class="btn primary" data-q="${esc(q.key)}">${esc(q.label)} 퀴즈${IS_MAIN ? ` <small>${q.words.length}</small>` : ' 풀기'}</button>`).join('')}</div>`;
@@ -2125,7 +2135,7 @@ function Detail(id, ids){
         ${ks.length ? '' : `<p class="o" style="margin:0;color:var(--sub)">${/[\u30a0-\u30ff]/.test(w.w) ? '가타카나 외래어' : '가나로만 쓰는 단어'}라 한자 분해는 없습니다. 뜻과 예문으로 외워 주세요.</p>`}
         ${ks.map(c => { const k = KANJI[c]; return k ? `
           <div class="kj"><div class="c jp">${c}</div><div>
-            <div class="h">${esc(k.hun)}<span class="t">${esc(k.type)}</span></div>
+            <div class="h">${esc(k.hun)}<span class="t">${esc(k.type)}</span>${KCOUNT[c] ? `<span class="kc ${KCOUNT[c] >= KC_HOT ? 'hot' : ''}" style="margin-left:6px">단어장 ${KCOUNT[c]}단어</span>` : ''}</div>
             <div class="p">구성: ${esc(k.parts)}</div>
             <div class="o">${esc(k.origin)}</div>
             ${k.memo ? `<div class="o memo">💡 ${esc(k.memo)}</div>` : ''}
