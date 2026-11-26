@@ -612,14 +612,17 @@ function Book(day){
   day = Math.min(Math.max(1, day|0), BOOK.length);
   store.set('bookDay', day);
   setHeader('단어 암기장', true);
+  // 필터별 개수: 암기 체크 시 Book()을 다시 그리므로 매번 새로 셈
+  const dw = BOOK[day-1].words, doneN = dw.filter(w => memorized.has(w.id)).length;
+  const cnt = {done: doneN, todo: dw.length - doneN, pred: dw.filter(w => w.pred).length};
   const list = BOOK[day-1].words.filter(w => bookFilter === 'all' || (bookFilter === 'pred' ? !!w.pred : bookFilter === 'todo' ? !memorized.has(w.id) : memorized.has(w.id)));
   view.innerHTML = `
     <div class="days" id="days">${BOOK.map((d, i) => `<button class="${i+1===day?'on':''}" data-d="${i+1}">${esc(d.short)}</button>`).join('')}</div>
     <div class="toolbar">
       <button class="pill ${bookFilter==='all'?'on':''}" data-f="all">전체 ${BOOK[day-1].words.length}</button>
-      <button class="pill ${bookFilter==='todo'?'on':''}" data-f="todo">미암기</button>
-      <button class="pill ${bookFilter==='done'?'on':''}" data-f="done">암기 완료</button>
-      <button class="pill ${bookFilter==='pred'?'on':''}" data-f="pred">출제 예상 ★</button>
+      <button class="pill ${bookFilter==='todo'?'on':''}" data-f="todo">미암기 ${cnt.todo}</button>
+      <button class="pill ${bookFilter==='done'?'on':''}" data-f="done">암기 완료 ${cnt.done}</button>
+      <button class="pill ${bookFilter==='pred'?'on':''}" data-f="pred">출제 예상 ★ ${cnt.pred}</button>
     </div>
     <p class="kclegend"><span class="kc"><b class="jp">字</b>N</span> 한자 옆 숫자 = 단어장 전체에서 그 한자가 들어간 단어 수 · <span class="kc hot">${KC_HOT}+</span> 자주 나오는 한자</p>
     <div class="list">${list.map((w, i) => `${w.h && (i === 0 || list[i-1].h !== w.h) ? `<h2 class="sub cat">${esc(w.h)}</h2>` : ''}
