@@ -420,16 +420,19 @@ let bookFilter = 'all';
 function Book(day){
   day = Math.min(Math.max(1, day|0), DAYS.length); store.set('bookDay', day); setLv(DAYS[day-1].lv);
   setHeader('単語帳');
+  // フィルター別の件数: 覚えたチェックで Book() を再描画するので毎回数え直す
+  const dw = DAYS[day-1], doneN = dw.filter(w => memorized.has(w.id)).length;
+  const cnt = {done: doneN, todo: dw.length - doneN, hj: dw.filter(w => w.hj).length, freq: dw.filter(w => w.freq).length};
   const list = DAYS[day-1].filter(w => bookFilter === 'all' || (bookFilter === 'todo' ? !memorized.has(w.id) : bookFilter === 'hj' ? w.hj : bookFilter === 'freq' ? !!w.freq : memorized.has(w.id)));
   view.innerHTML = `
     ${lvSeg()}
     <div class="days">${lvDays(curLv).map(g => `<button class="${g===day?'on':''}" data-d="${g}">Day ${curLv ? g - MID_DAYS.length : g}</button>`).join('')}</div>
     <div class="toolbar">
       <button class="pill ${bookFilter==='all'?'on':''}" data-f="all">全部 ${DAYS[day-1].length}</button>
-      <button class="pill ${bookFilter==='todo'?'on':''}" data-f="todo">未暗記</button>
-      <button class="pill ${bookFilter==='done'?'on':''}" data-f="done">覚えた</button>
-      <button class="pill ${bookFilter==='hj'?'on':''}" data-f="hj">漢字語</button>
-      <button class="pill ${bookFilter==='freq'?'on':''}" data-f="freq">よく使う ★</button>
+      <button class="pill ${bookFilter==='todo'?'on':''}" data-f="todo">未暗記 ${cnt.todo}</button>
+      <button class="pill ${bookFilter==='done'?'on':''}" data-f="done">覚えた ${cnt.done}</button>
+      <button class="pill ${bookFilter==='hj'?'on':''}" data-f="hj">漢字語 ${cnt.hj}</button>
+      <button class="pill ${bookFilter==='freq'?'on':''}" data-f="freq">よく使う ★ ${cnt.freq}</button>
     </div>
     <div class="list">${list.map(w => `
       <div class="card row ${memorized.has(w.id)?'done':''}" data-id="${w.id}">
