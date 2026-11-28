@@ -382,7 +382,7 @@ a.pick{animation:anUp .32s cubic-bezier(.2,.8,.2,1) backwards}a.pick+a.pick{anim
   const FITS = ['cover', 'contain', 'zoom', 'tile'], BPOS = ['center', 'top', 'bottom', 'left', 'right'];
   const T = {
     ko: {t: '내 이미지 꾸미기', close: '닫기', bg: '배경 이미지', veil: '가림 정도 (글자 잘 보이게)', blur: '배경 흐림', st: '스티커 (화면 구석)', size: '크기',
-      pos: '위치', br: '오른쪽 아래', bl: '왼쪽 아래', tr: '오른쪽 위', cheer: '정답 축하 이미지', cheerOn: '정답일 때 보여 주기', miss: '오답 이미지', missOn: '틀렸을 때 보여 주기', icons: '메뉴 아이콘',
+      pos: '위치', br: '오른쪽 아래', bl: '왼쪽 아래', tr: '오른쪽 위', cheer: '정답 축하 이미지', cheerOn: '정답일 때 보여 주기', multi: '최대 5장 · 넣은 사진 중에서 무작위로 하나씩 나와요', slot: n => `${n}번 사진`, miss: '오답 이미지', missOn: '틀렸을 때 보여 주기', icons: '메뉴 아이콘',
       pick: '사진 선택', del: '삭제', none: '없음', reset: '꾸미기 전부 지우기', resetQ: '배경·스티커·아이콘 이미지를 모두 지울까요?',
       noMenu: '홈 화면(메뉴가 보이는 화면)에서 열면 메뉴 아이콘을 바꿀 수 있어요.', note: '이미지는 이 기기에만 저장되며 학습 기록 백업 파일에는 포함되지 않습니다.',
       fail: '이미지를 불러오지 못했습니다. 다른 사진으로 시도해 주세요.', big: '파일이 너무 큽니다(30MB 이하).', noDb: '이 브라우저에서는 이미지를 저장할 수 없습니다(개인정보 보호 모드 등).',
@@ -393,7 +393,7 @@ a.pick{animation:anUp .32s cubic-bezier(.2,.8,.2,1) backwards}a.pick+a.pick{anim
       ord: '메뉴 순서', up: '위로', down: '아래로', ordReset: '기본 순서로', ordNote: '▲▼ 버튼으로 홈 화면 메뉴의 순서를 바꿀 수 있어요.', noOrd: '홈 화면(메뉴가 보이는 화면)에서 열면 메뉴 순서를 바꿀 수 있어요.',
       bkDone: '불러오기 완료', bkBad: '꾸미기 백업 파일이 아니거나 손상되었습니다.', bkOk: '파일을 만들었습니다.'},
     ja: {t: 'マイ画像でデコる', close: '閉じる', bg: '背景画像', veil: 'ぼかし幕の濃さ（文字を読みやすく）', blur: '背景のぼかし', st: 'ステッカー（画面のすみ）', size: '大きさ',
-      pos: '位置', br: '右下', bl: '左下', tr: '右上', cheer: '正解のごほうび画像', cheerOn: '正解したときに表示', miss: '不正解の画像', missOn: '間違えたときに表示', icons: 'メニューのアイコン',
+      pos: '位置', br: '右下', bl: '左下', tr: '右上', cheer: '正解のごほうび画像', cheerOn: '正解したときに表示', multi: '最大5枚 · 入れた写真の中からランダムに1枚ずつ表示されます', slot: n => `${n}枚目`, miss: '不正解の画像', missOn: '間違えたときに表示', icons: 'メニューのアイコン',
       pick: '写真を選ぶ', del: '削除', none: 'なし', reset: 'デコをすべて消す', resetQ: '背景・ステッカー・アイコンの画像をすべて消しますか？',
       noMenu: 'ホーム画面（メニューが見える画面）で開くと、メニューのアイコンを変えられます。', note: '画像はこの端末にだけ保存され、学習記録のバックアップには含まれません。',
       fail: '画像を読み込めませんでした。別の写真でお試しください。', big: 'ファイルが大きすぎます（30MBまで）。', noDb: 'このブラウザでは画像を保存できません（プライベートモードなど）。',
@@ -514,6 +514,10 @@ html.deco-bg,html.deco-bg body{background:transparent!important;background-image
 .dthumb{width:56px;height:56px;border-radius:12px;border:1px solid var(--line);background:var(--chip) center/cover no-repeat;flex:0 0 auto;display:grid;place-items:center;font-size:22px;color:var(--sub);overflow:hidden}
 .dthumb.wide{width:84px}
 .dthumb.contain{background-size:contain}
+.dslots{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px}
+.dslot{position:relative}
+.dslot .dthumb{width:100%;height:auto;aspect-ratio:1;cursor:pointer;font:inherit;font-size:22px;padding:0}
+.dsx{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:12px;line-height:1;padding:0;cursor:pointer;display:grid;place-items:center}
 .dlab{flex:1;min-width:120px;font-size:14px}
 .dlab small{display:block;color:var(--sub);font-size:12px}
 .dsec .btn{flex:0 0 auto;min-height:40px;padding:8px 12px;font-size:14px}
@@ -606,11 +610,22 @@ html.deco-bg header.top{box-shadow:0 8px 20px -14px rgba(0,0,0,.35)}
       marks.forEach((c, i) => c.replaceWith(sorted[i].node));
     }
   }
+  // 정답·오답 이미지는 종류별 5칸: 'cheer','cheer2'…'cheer5' / 'miss'…'miss5' (1칸 키는 이전 버전과 같아 기존 사진 그대로 유지)
+  const SLOTS = 5;
+  const slotKeys = kind => Array.from({length: SLOTS}, (_, i) => i ? kind + (i + 1) : kind);
+  const isSlot = k => /^(cheer|miss)[2-5]?$/.test(k);
+  const lastPick = {};
   let cheerT = 0;
   // 정답(cheer: 톡 튀어나옴) / 오답(miss: 도리도리 흔들림) 이미지
   function cheer(kind){
     kind = kind === 'miss' ? 'miss' : 'cheer';
-    const u = urls.get(kind); if (!u || !cfg[kind] || !document.body) return;
+    if (!cfg[kind] || !document.body) return;
+    // 등록된 사진 중 무작위 1장 (2장 이상이면 직전과 같은 사진은 피함)
+    let pool = slotKeys(kind).filter(k => urls.get(k));
+    if (!pool.length) return;
+    if (pool.length > 1 && lastPick[kind]) pool = pool.filter(k => k !== lastPick[kind]);
+    const key = pool[Math.floor(Math.random() * pool.length)]; lastPick[kind] = key;
+    const u = urls.get(key);
     const old = document.getElementById('decoCheer'); if (old) old.remove();
     const el = document.createElement('img'); el.id = 'decoCheer'; el.alt = ''; el.src = u; if (kind === 'miss') el.className = 'miss';
     document.body.appendChild(el);
@@ -708,7 +723,7 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
     try {
       const keys = await idbKeys();
       for (const k of keys) {
-        if (k === 'bg' || k === 'sticker' || k === 'cheer' || k === 'miss' || String(k).startsWith(`icon:${APP}:`)) {
+        if (k === 'bg' || k === 'sticker' || isSlot(String(k)) || String(k).startsWith(`icon:${APP}:`)) {
           const b = await idbGet(k); if (b instanceof Blob) setUrl(k, b);
         }
       }
@@ -723,7 +738,7 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 
   // ---- 꾸미기 백업: 이미지(dataURL)+설정+테마를 JSON 한 파일로 ----
-  const KEY_OK = k => /^(bg|sticker|cheer|miss|icon:[\w.-]{1,40}:[\w.-]{1,60})$/.test(k);
+  const KEY_OK = k => /^(bg|sticker|(?:cheer|miss)[2-5]?|icon:[\w.-]{1,40}:[\w.-]{1,60})$/.test(k);
   const blob2url = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
   function url2blob(u){
     const m = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(u || ''); if (!m) throw new Error('bad');
@@ -766,6 +781,10 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
     let target = null, msg = '', msgOk = false;
     const jf = document.createElement('input'); jf.type = 'file'; jf.accept = 'application/json,.json'; jf.hidden = true;
     const thumb = (k, cls) => { const u = urls.get(k); return `<div class="dthumb ${cls || ''}" ${u ? `style="background-image:url('${u}')"` : ''}>${u ? '' : '·'}<\/div>`; };
+    const slots = kind => `<p class="dnote" style="margin:0 0 8px">${L.multi}<\/p><div class="dslots">${slotKeys(kind).map((k, i) => { const u = urls.get(k);
+      return `<div class="dslot"><button class="dthumb contain" data-pick="${k}" aria-label="${L.slot(i + 1)} ${L.pick}" ${u ? `style="background-image:url('${u}')"` : ''}>${u ? '' : '+'}<\/button>
+        ${u ? `<button class="dsx" data-del="${k}" aria-label="${L.slot(i + 1)} ${L.del}">✕<\/button>` : ''}<\/div>`; }).join('')}<\/div>`;
+    const anySlot = kind => slotKeys(kind).some(k => urls.get(k));
     const btns = k => `<button class="btn" data-pick="${esc(k)}">${L.pick}<\/button>${urls.get(k) ? `<button class="btn" data-del="${esc(k)}">${L.del}<\/button>` : ''}`;
     function render(){
       const menus = menuItems();
@@ -790,11 +809,11 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
           ${urls.get('sticker') ? `<div class="drow"><span class="dlab">${L.size}<\/span><input type="range" min="48" max="160" step="4" value="${cfg.stSize}" data-cfg="stSize"><\/div>
           <div class="drow"><span class="dlab">${L.pos}<\/span><select data-cfg="stPos">${['br', 'bl', 'tr'].map(p => `<option value="${p}" ${cfg.stPos === p ? 'selected' : ''}>${L[p]}<\/option>`).join('')}<\/select><\/div>` : ''}<\/div>
         <div class="dsec"><h3>${L.cheer}<\/h3>
-          <div class="drow">${thumb('cheer', 'contain')}<div class="dlab"><\/div>${btns('cheer')}<\/div>
-          ${urls.get('cheer') ? `<div class="drow"><label class="dlab"><input type="checkbox" data-cfg="cheer" ${cfg.cheer ? 'checked' : ''}> ${L.cheerOn}<\/label><button class="btn" data-test="cheer">${L.test}<\/button><\/div>` : ''}<\/div>
+          ${slots('cheer')}
+          ${anySlot('cheer') ? `<div class="drow"><label class="dlab"><input type="checkbox" data-cfg="cheer" ${cfg.cheer ? 'checked' : ''}> ${L.cheerOn}<\/label><button class="btn" data-test="cheer">${L.test}<\/button><\/div>` : ''}<\/div>
         <div class="dsec"><h3>${L.miss}<\/h3>
-          <div class="drow">${thumb('miss', 'contain')}<div class="dlab"><\/div>${btns('miss')}<\/div>
-          ${urls.get('miss') ? `<div class="drow"><label class="dlab"><input type="checkbox" data-cfg="miss" ${cfg.miss ? 'checked' : ''}> ${L.missOn}<\/label><button class="btn" data-test="miss">${L.test}<\/button><\/div>` : ''}<\/div>
+          ${slots('miss')}
+          ${anySlot('miss') ? `<div class="drow"><label class="dlab"><input type="checkbox" data-cfg="miss" ${cfg.miss ? 'checked' : ''}> ${L.missOn}<\/label><button class="btn" data-test="miss">${L.test}<\/button><\/div>` : ''}<\/div>
         <div class="dsec"><h3>${L.ord}<\/h3>
           ${menus.length > 1 ? `<p class="dnote" style="margin-top:0">${L.ordNote}<\/p>${menus.map((m, i) => `<div class="drow dord"><span class="dlab">${i + 1}. ${esc(m.label)}<\/span>
             <button class="btn dmv" data-mv="${i}" data-dir="-1" aria-label="${esc(m.label)} ${L.up}" ${i ? '' : 'disabled'}>▲<\/button><button class="btn dmv" data-mv="${i}" data-dir="1" aria-label="${esc(m.label)} ${L.down}" ${i < menus.length - 1 ? '' : 'disabled'}>▼<\/button><\/div>`).join('')}
@@ -809,7 +828,7 @@ html.deco-glass header.top{background:${rgba(bg)}!important}`;
     }
     const close = () => { document.removeEventListener('keydown', onKey, true); el.remove(); file.remove(); jf.remove(); };
     const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; } if (e.key !== 'Tab') e.stopPropagation(); };
-    const kindOf = k => k.startsWith('icon:') ? 'icon' : k;
+    const kindOf = k => k.startsWith('icon:') ? 'icon' : isSlot(k) ? k.replace(/\d$/, '') : k;
     file.onchange = async () => {
       const f = file.files && file.files[0]; file.value = ''; if (!f || !target) return;
       const k = target; msg = L.saving; msgOk = false; render();
